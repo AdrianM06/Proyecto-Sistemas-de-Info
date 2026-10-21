@@ -1,0 +1,48 @@
+# Revisión automática de la app Flutter.
+# En cada push a una rama de trabajo y en cada Pull Request, GitHub instala
+# Flutter, revisa el código, corre las pruebas y compila la versión web.
+name: Flutter CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-ci.yml"
+  pull_request:
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  flutter:
+    name: Analizar, probar y compilar
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Versión de Flutter
+        run: flutter --version
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Revisar el código
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Correr las pruebas
+        run: flutter test
+
+      - name: Compilar la versión web
+        run: flutter build web
