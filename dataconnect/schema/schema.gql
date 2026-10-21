@@ -1,0 +1,36 @@
+type University @table {
+  name: String!
+  location: String
+  contactEmail: String
+}
+
+type Team @table {
+  name: String!
+  sportType: String!
+  university: University!
+}
+
+type Athlete @table {
+  name: String!
+  studentId: String!
+  position: String
+  jerseyNumber: Int
+  team: Team!
+}
+
+type Tournament @table {
+  name: String!
+  startDate: Date!
+  description: String
+  category: String
+}
+
+type Match @table {
+  tournament: Tournament!
+  homeTeam: Team!
+  awayTeam: Team!
+  date: Timestamp!
+  homeScore: Int
+  awayScore: Int
+  venue: String
+}

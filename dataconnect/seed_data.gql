@@ -1,0 +1,42 @@
+mutation SeedData @transaction {
+  university_insertMany(data: [
+    { name: "Tech University", location: "San Francisco", contactEmail: "contact@tech.edu" },
+    { name: "Sports Academy", location: "Los Angeles", contactEmail: "info@sports.edu" },
+    { name: "City College", location: "New York", contactEmail: "admin@city.edu" }
+  ])
+  
+  team_insertMany(data: [
+    { name: "Golden Bears", sportType: "Basketball", university: { id: "00000000-0000-0000-0000-000000000001" } },
+    { name: "Titans", sportType: "Soccer", university: { id: "00000000-0000-0000-0000-000000000002" } },
+    { name: "Falcons", sportType: "Baseball", university: { id: "00000000-0000-0000-0000-000000000003" } }
+  ])
+  
+  athlete_insertMany(data: [
+    { name: "Alice Johnson", studentId: "S101", position: "Guard", jerseyNumber: 10, team: { id: "00000000-0000-0000-0000-000000000001" } },
+    { name: "Bob Smith", studentId: "S102", position: "Forward", jerseyNumber: 22, team: { id: "00000000-0000-0000-0000-000000000001" } },
+    { name: "Charlie Davis", studentId: "S103", position: "Goalie", jerseyNumber: 1, team: { id: "00000000-0000-0000-0000-000000000002" } },
+    { name: "Diana Prince", studentId: "S104", position: "Pitcher", jerseyNumber: 45, team: { id: "00000000-0000-0000-0000-000000000003" } }
+  ])
+
+  tournament_insertMany(data: [
+    { name: "Spring Championship", startDate: "2024-03-01", description: "Regional basketball", category: "Basketball" },
+    { name: "Summer Cup", startDate: "2024-06-15", description: "Summer soccer tournament", category: "Soccer" }
+  ])
+
+  match_insertMany(data: [
+    { 
+      tournament: { id: "00000000-0000-0000-0000-000000000001" },
+      homeTeam: { id: "00000000-0000-0000-0000-000000000001" },
+      awayTeam: { id: "00000000-0000-0000-0000-000000000002" },
+      date: "2024-03-05T18:00:00Z",
+      venue: "Main Arena"
+    },
+    { 
+      tournament: { id: "00000000-0000-0000-0000-000000000002" },
+      homeTeam: { id: "00000000-0000-0000-0000-000000000002" },
+      awayTeam: { id: "00000000-0000-0000-0000-000000000003" },
+      date: "2024-06-20T14:30:00Z",
+      venue: "City Field"
+    }
+  ])
+}

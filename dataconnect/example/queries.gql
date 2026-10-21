@@ -1,0 +1,119 @@
+mutation CreateAthlete($data: Athlete_Data!) @auth(level: USER) {
+  athlete_insert(data: $data)
+}
+
+mutation UpdateAthlete($id: UUID!, $data: Athlete_Data!) @auth(level: USER) {
+  athlete_update(id: $id, data: $data)
+}
+
+mutation DeleteAthlete($id: UUID!) @auth(level: USER) {
+  athlete_delete(id: $id)
+}
+
+query GetAthlete($id: UUID!) @auth(level: USER) {
+  athlete(id: $id) {
+    name studentId position jerseyNumber team { name }
+  }
+}
+
+query ListAthletes @auth(level: USER) {
+  athletes {
+    name studentId position jerseyNumber
+  }
+}
+
+mutation CreateMatch($data: Match_Data!) @auth(level: USER) {
+  match_insert(data: $data)
+}
+
+mutation UpdateMatch($id: UUID!, $data: Match_Data!) @auth(level: USER) {
+  match_update(id: $id, data: $data)
+}
+
+mutation DeleteMatch($id: UUID!) @auth(level: USER) {
+  match_delete(id: $id)
+}
+
+query GetMatch($id: UUID!) @auth(level: PUBLIC, insecureReason: "Match data is publicly available for spectators.") {
+  match(id: $id) {
+    tournament { name } homeTeam { name } awayTeam { name } date homeScore awayScore venue
+  }
+}
+
+query ListMatches @auth(level: PUBLIC, insecureReason: "Match schedules are public info.") {
+  matches {
+    tournament { name } homeTeam { name } awayTeam { name } date
+  }
+}
+
+mutation CreateTeam($data: Team_Data!) @auth(level: USER) {
+  team_insert(data: $data)
+}
+
+mutation UpdateTeam($id: UUID!, $data: Team_Data!) @auth(level: USER) {
+  team_update(id: $id, data: $data)
+}
+
+mutation DeleteTeam($id: UUID!) @auth(level: USER) {
+  team_delete(id: $id)
+}
+
+query GetTeam($id: UUID!) @auth(level: PUBLIC, insecureReason: "Team rosters and info are public.") {
+  team(id: $id) {
+    name sportType university { name }
+  }
+}
+
+query ListTeams @auth(level: PUBLIC, insecureReason: "Publicly list teams to users.") {
+  teams {
+    name sportType
+  }
+}
+
+mutation CreateTournament($data: Tournament_Data!) @auth(level: USER) {
+  tournament_insert(data: $data)
+}
+
+mutation UpdateTournament($id: UUID!, $data: Tournament_Data!) @auth(level: USER) {
+  tournament_update(id: $id, data: $data)
+}
+
+mutation DeleteTournament($id: UUID!) @auth(level: USER) {
+  tournament_delete(id: $id)
+}
+
+query GetTournament($id: UUID!) @auth(level: PUBLIC, insecureReason: "Tournaments are public events.") {
+  tournament(id: $id) {
+    name startDate description category
+  }
+}
+
+query ListTournaments @auth(level: PUBLIC, insecureReason: "Public list of upcoming tournaments.") {
+  tournaments {
+    name startDate category
+  }
+}
+
+mutation CreateUniversity($data: University_Data!) @auth(level: USER) {
+  university_insert(data: $data)
+}
+
+mutation UpdateUniversity($id: UUID!, $data: University_Data!) @auth(level: USER) {
+  university_update(id: $id, data: $data)
+}
+
+mutation DeleteUniversity($id: UUID!) @auth(level: USER) {
+  university_delete(id: $id)
+}
+
+query GetUniversity($id: UUID!) @auth(level: PUBLIC, insecureReason: "University details are public.") {
+  university(id: $id) {
+    name location contactEmail
+  }
+}
+
+query ListUniversities @auth(level: PUBLIC, insecureReason: "List of participating universities is public.") {
+  universities {
+    name location
+  }
+}
