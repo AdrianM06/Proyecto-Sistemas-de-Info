@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+//NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
 const _navy = Color(0xFF003B82);
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
+
+enum UserRole { estudiante, entrenador }
 
 void main() {
   runApp(const UnimetSportsApp());
@@ -35,13 +38,14 @@ class LoginScreen extends StatelessWidget {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
+          // Desktop / Tablet layout
           if (constraints.maxWidth >= 760) {
             return Row(
               children: [
                 const Expanded(child: _SportsHero()),
                 Expanded(
                   child: Container(
-                    decoration: const BoxDecoration(color: _panelGray),
+                    color: _panelGray,
                     child: LayoutBuilder(
                       builder: (context, panelConstraints) {
                         return SingleChildScrollView(
@@ -60,8 +64,9 @@ class LoginScreen extends StatelessWidget {
             );
           }
 
+          // Mobile layout
           return Container(
-            decoration: const BoxDecoration(color: _panelGray),
+            color: _panelGray,
             child: SingleChildScrollView(
               child: Column(
                 children: [
@@ -85,190 +90,50 @@ class _SportsHero extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
+        // 1. Background Photo
+        Image.asset(
+          'assets/images/tennis_stock_photo.jpg',
+          fit: BoxFit.cover,
+        ),
+        
+        // Dark gradient overlay for improved logo contrast
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF364A2D), Color(0xFF6F7950), Color(0xFF182B35)],
-              stops: [0, 0.43, 1],
+              colors: [
+                Colors.black.withOpacity(0.4),
+                Colors.transparent,
+                Colors.black.withOpacity(0.2),
+              ],
             ),
           ),
         ),
-        const _CourtIllustration(),
+
+        // 2. Logo Container floating in the top left
         Positioned(
           top: 28,
           left: 28,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
-            child: const _UnimetSportsLogo(),
+            child: Image.asset(
+              'assets/images/unimet_sports_logo.png',
+              height: 184,
+              fit: BoxFit.contain,
+            ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CourtIllustration extends StatelessWidget {
-  const _CourtIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Fallback to default height if constraints are unbounded or 0
-        final height = constraints.maxHeight > 0 && constraints.maxHeight.isFinite 
-            ? constraints.maxHeight 
-            : 400.0;
-        final width = constraints.maxWidth > 0 && constraints.maxWidth.isFinite 
-            ? constraints.maxWidth 
-            : 400.0;
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              top: height * 0.38,
-              left: -width * 0.08,
-              right: -width * 0.08,
-              bottom: -height * 0.08,
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1486AE), Color(0xFF00648D)],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: height * 0.43,
-              left: width * 0.06,
-              right: width * 0.06,
-              bottom: height * 0.05,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white70, width: 2),
-                ),
-                child: Stack(
-                  children: [
-                    Align(
-                      alignment: Alignment.center,
-                      child: Container(width: 2, color: Colors.white70),
-                    ),
-                    Align(
-                      alignment: Alignment.center,
-                      child: Container(height: 2, color: Colors.white70),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: height * 0.28,
-                      child: Container(
-                        height: 3,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFDAE4E4),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 4),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: width * 0.16,
-              bottom: height * 0.12,
-              child: const _PlayerSilhouette(color: Color(0xFF26333B)),
-            ),
-            Positioned(
-              right: width * 0.18,
-              top: height * 0.48,
-              child: const _PlayerSilhouette(color: Color(0xFF554D43)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _PlayerSilhouette extends StatelessWidget {
-  const _PlayerSilhouette({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 22,
-          height: 22,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        Container(
-          width: 34,
-          height: 80,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _UnimetSportsLogo extends StatelessWidget {
-  const _UnimetSportsLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Container(width: 9, height: 48, color: _orange),
-            const SizedBox(width: 4),
-            Container(width: 9, height: 58, color: _orange),
-            const SizedBox(width: 4),
-            Container(width: 9, height: 68, color: _orange),
-          ],
-        ),
-        const SizedBox(width: 12),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'UNIMET',
-              style: TextStyle(
-                color: _orange,
-                fontSize: 27,
-                fontWeight: FontWeight.w900,
-                height: 0.95,
-                letterSpacing: 1.2,
-              ),
-            ),
-            Text(
-              'SPORTS',
-              style: TextStyle(
-                color: _navy,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 4,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -317,7 +182,7 @@ class _LoginContent extends StatelessWidget {
                       ),
                       TextSpan(
                         text: 'aquí',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _navy,
                           decoration: TextDecoration.underline,
                         ),
@@ -347,29 +212,46 @@ class _LoginContent extends StatelessWidget {
   }
 }
 
-class _LoginForm extends StatelessWidget {
+class _LoginForm extends StatefulWidget {
   const _LoginForm();
+
+  @override
+  State<_LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<_LoginForm> {
+  UserRole _selectedRole = UserRole.estudiante;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Row(
+        Row(
           children: [
             Expanded(
               child: _RoleOption(
                 label: 'Estudiante',
                 backgroundColor: _orange,
-                fontSize: 17,
+                isSelected: _selectedRole == UserRole.estudiante,
+                onTap: () {
+                  setState(() {
+                    _selectedRole = UserRole.estudiante;
+                  });
+                },
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: _RoleOption(
                 label: 'Entrenador',
                 backgroundColor: _navy,
-                fontSize: 25,
+                isSelected: _selectedRole == UserRole.entrenador,
+                onTap: () {
+                  setState(() {
+                    _selectedRole = UserRole.entrenador;
+                  });
+                },
               ),
             ),
           ],
@@ -380,14 +262,25 @@ class _LoginForm extends StatelessWidget {
           style: TextStyle(fontSize: 18, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        const _InputPlaceholder(),
+        const TextField(
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
         const SizedBox(height: 20),
         const Text(
           'Contraseña',
           style: TextStyle(fontSize: 18, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        const _InputPlaceholder(),
+        const TextField(
+          obscureText: true,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
         const SizedBox(height: 4),
         Text.rich(
           TextSpan(
@@ -400,7 +293,7 @@ class _LoginForm extends StatelessWidget {
               const TextSpan(text: 'dale click '),
               TextSpan(
                 text: 'aquí',
-                style: TextStyle(
+                style: const TextStyle(
                   color: _navy,
                   decoration: TextDecoration.underline,
                 ),
@@ -410,18 +303,22 @@ class _LoginForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        Container(
-          height: 58,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _buttonBrown,
-            borderRadius: BorderRadius.circular(16),
+        ElevatedButton(
+          onPressed: () {
+            // Access active selection via `_selectedRole`
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _buttonBrown,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           child: const Text(
             'Iniciar Sesión',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 27,
+              fontSize: 24,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -435,44 +332,55 @@ class _RoleOption extends StatelessWidget {
   const _RoleOption({
     required this.label,
     required this.backgroundColor,
-    required this.fontSize,
+    required this.isSelected,
+    required this.onTap,
   });
 
   final String label;
   final Color backgroundColor;
-  final double fontSize;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          style: TextStyle(color: Colors.white, fontSize: fontSize),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          vertical: isSelected ? 12 : 6,
+          horizontal: 8,
         ),
-      ),
-    );
-  }
-}
-
-class _InputPlaceholder extends StatelessWidget {
-  const _InputPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFB8B1A8), width: 1.5),
-        borderRadius: BorderRadius.circular(4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? backgroundColor
+              : backgroundColor.withOpacity(0.35),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: backgroundColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : [],
+        ),
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontSize: isSelected ? 22 : 15,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label),
+          ),
+        ),
       ),
     );
   }
