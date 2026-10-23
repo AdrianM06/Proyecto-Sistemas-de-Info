@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'views/password_recovery_screen.dart';
 import 'views/registration_screen.dart';
 
 //NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
@@ -298,25 +299,47 @@ class _LoginFormState extends State<_LoginForm> {
           ),
         ),
         const SizedBox(height: 4),
-        Text.rich(
-          TextSpan(
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              'dale click ',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
             ),
-            children: [
-              const TextSpan(text: 'dale click '),
-              TextSpan(
-                text: 'aquí',
-                style: const TextStyle(
-                  color: _navy,
-                  decoration: TextDecoration.underline,
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PasswordRecoveryScreen(),
+                  ),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  'aquí',
+                  style: TextStyle(
+                    color: _navy,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
-              const TextSpan(text: ' si se le olvidó su contraseña'),
-            ],
-          ),
+            ),
+            const Text(
+              ' si se le olvidó su contraseña',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
         ElevatedButton(

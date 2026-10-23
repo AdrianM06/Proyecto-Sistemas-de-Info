@@ -177,6 +177,11 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
+                            label: 'Nombre de Usuario',
+                            validator: AppValidators.validateUsername,
+                          ),
+                          const SizedBox(height: 16),
+                          _RegistrationField(
                             label: 'Carnet Universitario',
                             keyboardType: TextInputType.number,
                             validator: AppValidators.validateCarnet,
@@ -225,10 +230,10 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                       ),
                       children: [
                         const TextSpan(
-                          text: 'si ya tiene una cuenta, inicie sesión ',
+                          text: 'ya tiene una cuenta? inicie sesión ',
                         ),
                         TextSpan(
-                          text: 'aquí',
+                          text: 'aqui',
                           style: const TextStyle(
                             color: _navy,
                             decoration: TextDecoration.underline,
@@ -272,10 +277,12 @@ class _RegistrationField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscureText,
           validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             isDense: true,
+            errorMaxLines: 2,
           ),
         ),
       ],
