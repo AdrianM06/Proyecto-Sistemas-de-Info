@@ -56,6 +56,7 @@ flutter:
   assets:
     - assets/images/unimet_sports_logo.png
     - assets/images/tennis_stock_photo.jpg
+    - assets/images/padel_stock_photo.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'views/registration_screen.dart';
+
 //NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
 const _navy = Color(0xFF003B82);
@@ -169,27 +171,41 @@ class _LoginContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text.rich(
-                  TextSpan(
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    children: [
-                      const TextSpan(
-                        text: 'si no tiene una cuenta ya hecha, registrese ',
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text(
+                      'si no tiene una cuenta ya hecha, registrese ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
                       ),
-                      TextSpan(
-                        text: 'aquí',
-                        style: const TextStyle(
-                          color: _navy,
-                          decoration: TextDecoration.underline,
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const RegistrationScreen(),
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          'aquí',
+                          style: TextStyle(
+                            color: _navy,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 28),
                 ConstrainedBox(

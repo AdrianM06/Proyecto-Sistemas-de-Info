@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_app/main.dart';
+import 'package:flutter_app/views/main.dart';
 
 void main() {
   testWidgets('shows the UNIMET Sports sign-in screen', (
