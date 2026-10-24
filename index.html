@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Samán Deportivo | UNIMET Sports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        unimetBlue: '#003087',
+                        unimetOrange: '#FF8200',
+                        unimetOrangeDark: '#F68629',
+                        unimetSecondary: '#1859A9',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+  
+    <!-- Header / Navbar -->
+    <header class="bg-unimetBlue text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-unimetOrange text-white font-black px-3 py-2 rounded-lg text-xl tracking-wider">
+                    UNIMET
+                </div>
+                <span class="text-2xl font-bold tracking-tight">Samán Deportivo</span>
+            </div>
+            <nav class="hidden md:flex space-x-8 font-medium">
+                <a href="#inicio" class="hover:text-unimetOrange transition">Inicio</a>
+                <a href="#vision" class="hover:text-unimetOrange transition">Visión y Misión</a>
+                <a href="#roles" class="hover:text-unimetOrange transition">Actores</a>
+                <a href="#arquitectura" class="hover:text-unimetOrange transition">Arquitectura</a>
+            </nav>
+            <div>
+                <a href="https://www.figma.com/design/qchXoGJgzJYTnUHvw3m4li/Pagina-de-Inicio-UNIMET-Sports?node-id=3-2&p=f&t=OBbaDrVAnQCfZcQW-0" target="_blank" class="bg-unimetOrange hover:bg-unimetOrangeDark text-white font-bold px-5 py-2.5 rounded-lg shadow transition">
+                    Ver Prototipo Figma
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="inicio" class="bg-gradient-to-br from-unimetBlue to-unimetSecondary text-white py-20 lg:py-32">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <span class="bg-unimetOrange/20 text-unimetOrange border border-unimetOrange/40 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-widest inline-block mb-4">
+                Plataforma Oficial UNIMET Sports[cite: 5]
+            </span>
+            <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight mb-6">
+                Gestión Integral de Clubes y <span class="text-unimetOrange">Disciplinas Deportivas</span>
+            </h1>
+            <p class="text-lg sm:text-xl text-gray-200 max-w-3xl mx-auto mb-10">
+                Plataforma web y PWA desarrollada para optimizar la oferta deportiva, automatizar inscripciones con control de cupos en tiempo real y asegurar la validación financiera y académica en la Universidad Metropolitana[cite: 2, 5].
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#vision" class="bg-unimetOrange hover:bg-unimetOrangeDark text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition">
+                    Conocer el Proyecto
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Visión y Misión -->
+    <section id="vision" class="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-unimetBlue sm:text-4xl">Nuestra Identidad Institucional</h2>
+            <div class="w-24 h-1 bg-unimetOrange mx-auto mt-3"></div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-8">
+            <div class="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-unimetBlue">
+                <div class="text-unimetBlue text-3xl mb-4"><i class="fas fa-bullseye"></i></div>
+                <h3 class="text-2xl font-bold text-unimetBlue mb-3">Visión del Sistema</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Desarrollar una plataforma integral orientada a centralizar y automatizar la oferta deportiva de la UNIMET, garantizando control de cupos en tiempo real y trazabilidad[cite: 5].
+                </p>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-unimetOrange">
+                <div class="text-unimetOrange text-3xl mb-4"><i class="fas fa-flag"></i></div>
+                <h3 class="text-2xl font-bold text-unimetBlue mb-3">Misión del Sistema</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Proveer a la comunidad de la Universidad Metropolitana de una plataforma digital accesible, rápida y segura que promueva el desarrollo integral y la salud[cite: 5].
+                </p>
+            </div>
+        </div>
+    </section>
