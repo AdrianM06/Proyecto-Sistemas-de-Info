@@ -1,4 +1,3 @@
-// Archivo o sección 1: Estructura principal
 import 'package:flutter/material.dart';
 import 'registration_screen.dart';
 
@@ -147,6 +146,65 @@ class LandingView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class LandingFeaturesSection extends StatelessWidget {
+  const LandingFeaturesSection({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const Color unimetBlue = Color(0xFF003087);
+
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        children: [
+          const Text(
+            'Nuestros Módulos Principales',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: unimetBlue),
+          ),
+          const SizedBox(height: 24),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildFeatureCard(Icons.sports_soccer, 'Gestión Deportiva', 'Control de disciplinas y torneos activos.'),
+              _buildFeatureCard(Icons.person, 'Perfil de Usuario', 'Administra tus datos y rol institucional.'),
+              _buildFeatureCard(Icons.calendar_today, 'Entrenamientos', 'Sigue de cerca las rutinas con los entrenadores.'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(IconData icon, String title, String description) {
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: const Color(0xFF003087)),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(description, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        ],
       ),
     );
   }
