@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/utils/app_validators.dart';
+import 'profile_view.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
