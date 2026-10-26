@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('shows the UNIMET Sports sign-in screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const UnimetSportsApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('INICIAR SESIÓN'), findsOneWidget);
+    expect(find.text('UNIMET'), findsOneWidget);
+    expect(find.text('Correo/Carnet Universitario'), findsOneWidget);
+    expect(find.text('Contraseña'), findsOneWidget);
+    expect(find.text('Estudiante'), findsOneWidget);
+    expect(find.text('Entrenador'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('opens recovery and validates the email and student ID', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const UnimetSportsApp());
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('aquí').at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECUPERAR CONTRASEÑA'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNWidgets(2));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'not-an-email');
+    await tester.enterText(find.byType(TextFormField).at(1), 'abc');
+    await tester.tap(find.text('Mandar Código'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Debe ser un correo institucional (@unimet.edu.ve o @correo.unimet.edu.ve)',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('El carnet solo debe contener números'), findsOneWidget);
   });
 }
