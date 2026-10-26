@@ -30,13 +30,7 @@ class UnimetSportsApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      logica-login
       home: const LoginScreen(),
-
-      
-     home: const LandingView(),
-
-      main
     );
   }
 }
