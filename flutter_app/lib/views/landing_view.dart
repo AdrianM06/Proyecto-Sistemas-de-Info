@@ -57,8 +57,8 @@ class LandingView extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              const Text(
+               SizedBox(width: 12),
+               Text(
                 'Samán Deportivo',
                 style: TextStyle(
                   fontSize: 18,
