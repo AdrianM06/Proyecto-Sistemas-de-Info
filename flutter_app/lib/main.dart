@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'views/landing_view.dart';
 
 import 'views/password_recovery_screen.dart';
 import 'views/registration_screen.dart';
@@ -28,7 +29,14 @@ class UnimetSportsApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
+
+      logica-login
       home: const LoginScreen(),
+
+      
+     home: const LandingView(),
+
+      main
     );
   }
 }
