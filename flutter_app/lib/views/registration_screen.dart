@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
 import '../utils/app_validators.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
 const _navy = Color(0xFF003B82);
+const _orange = Color(0xFFF58220);
 
+/// Registro de cuentas (ruta `/registro`). Guarda el usuario en Firebase
+/// Authentication y su perfil con el rol elegido en la colección `users`.
 class RegistrationScreen extends StatelessWidget {
-  const RegistrationScreen({super.key});
+  const RegistrationScreen({
+    super.key,
+    this.rolInicial = RolesUsuario.estudiante,
+  });
+
+  /// Rol marcado al abrir la pantalla (viene del selector del login).
+  final String rolInicial;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +39,7 @@ class RegistrationScreen extends StatelessWidget {
                             constraints: BoxConstraints(
                               minHeight: panelConstraints.maxHeight,
                             ),
-                            child: const _RegistrationContent(),
+                            child: _RegistrationContent(rolInicial: rolInicial),
                           ),
                         );
                       },
@@ -46,7 +56,7 @@ class RegistrationScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 320, child: _RegistrationHero()),
-                  const _RegistrationContent(),
+                  _RegistrationContent(rolInicial: rolInicial),
                 ],
               ),
             ),
@@ -112,7 +122,9 @@ class _RegistrationHero extends StatelessWidget {
 }
 
 class _RegistrationContent extends StatefulWidget {
-  const _RegistrationContent();
+  const _RegistrationContent({required this.rolInicial});
+
+  final String rolInicial;
 
   @override
   State<_RegistrationContent> createState() => _RegistrationContentState();
@@ -127,6 +139,7 @@ class _RegistrationContentState extends State<_RegistrationContent> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  late String _rol = RolesUsuario.desdeTexto(widget.rolInicial);
 
   @override
   void dispose() {
@@ -143,11 +156,12 @@ class _RegistrationContentState extends State<_RegistrationContent> {
     setState(() => _isLoading = true);
 
     try {
-      await AuthService.instance.registerStudent(
+      final sesion = await AuthService.instance.registerUser(
         email: _emailController.text,
         username: _usernameController.text,
         carnet: _carnetController.text,
         password: _passwordController.text,
+        rol: _rol,
       );
 
       if (!mounted) return;
@@ -155,15 +169,18 @@ class _RegistrationContentState extends State<_RegistrationContent> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.green,
-          content: Text('¡Cuenta creada e inscrita con éxito en Firebase!'),
+          content: Text('¡Cuenta creada con éxito!'),
         ),
       );
 
-      Navigator.pop(context); // Volver a la pantalla de Inicio de Sesión
+      // La cuenta queda con la sesión iniciada: se va directo a su vista.
+      AppRoutes.irAVistaDelRol(context, sesion);
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'Error al registrar usuario';
       if (e.code == 'email-already-in-use') {
         errorMessage = 'El correo electrónico ya está registrado.';
+      } else if (e.code == 'carnet-already-in-use') {
+        errorMessage = 'Ese carnet ya está registrado.';
       } else if (e.code == 'weak-password') {
         errorMessage = 'La contraseña debe tener mayor seguridad.';
       } else if (e.message != null) {
@@ -223,6 +240,39 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const Text(
+                            'Tipo de cuenta',
+                            style: TextStyle(fontSize: 14, color: Colors.black),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _OpcionRol(
+                                  key: const Key('registro-rol-estudiante'),
+                                  etiqueta: 'Estudiante',
+                                  color: _orange,
+                                  seleccionado: _rol == RolesUsuario.estudiante,
+                                  onTap: () => setState(
+                                    () => _rol = RolesUsuario.estudiante,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _OpcionRol(
+                                  key: const Key('registro-rol-entrenador'),
+                                  etiqueta: 'Entrenador',
+                                  color: _navy,
+                                  seleccionado: _rol == RolesUsuario.entrenador,
+                                  onTap: () => setState(
+                                    () => _rol = RolesUsuario.entrenador,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           _RegistrationField(
                             label: 'Correo Electrónico Unimet',
                             controller: _emailController,
@@ -251,6 +301,7 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
+                            key: const Key('boton-registrar'),
                             onPressed: _isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _buttonBrown,
@@ -285,7 +336,12 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: () {
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context);
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    } else {
+                      navigator.pushReplacementNamed(AppRoutes.login);
+                    }
                   },
                   child: Text.rich(
                     TextSpan(
@@ -355,6 +411,46 @@ class _RegistrationField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Botón para elegir el tipo de cuenta (estudiante o entrenador).
+class _OpcionRol extends StatelessWidget {
+  const _OpcionRol({
+    super.key,
+    required this.etiqueta,
+    required this.color,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  final String etiqueta;
+  final Color color;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: seleccionado ? color : color.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Center(
+            child: Text(
+              etiqueta,
+              style: TextStyle(
+                color: seleccionado ? Colors.white : Colors.black87,
+                fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
