@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'registration_screen.dart';
+import '../navigation/app_routes.dart';
 
 class LandingView extends StatelessWidget {
   const LandingView({super.key});
@@ -76,10 +76,7 @@ class LandingView extends StatelessWidget {
               ),
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RegistrationScreen()),
-              );
+              Navigator.pushNamed(context, AppRoutes.login);
             },
             child: const Text('Acceder', style: TextStyle(color: Colors.white)),
           ),
@@ -126,6 +123,7 @@ class LandingView extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
+              key: const Key('landing-boton-login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: unimetOrange,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
@@ -133,11 +131,9 @@ class LandingView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
+              // Botón principal: lleva al inicio de sesión.
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RegistrationScreen()),
-                );
+                Navigator.pushNamed(context, AppRoutes.login);
               },
               child: const Text(
                 'Comenzar Ahora',
