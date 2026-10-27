@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/utils/app_validators.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
+import '../utils/app_validators.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
@@ -120,15 +121,66 @@ class _RegistrationContent extends StatefulWidget {
 class _RegistrationContentState extends State<_RegistrationContent> {
   final _formKey = GlobalKey<FormState>();
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
+  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _carnetController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _usernameController.dispose();
+    _carnetController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await AuthService.instance.registerStudent(
+        email: _emailController.text,
+        username: _usernameController.text,
+        carnet: _carnetController.text,
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Formulario validado. La creación de cuentas aún no está conectada.',
-          ),
+          backgroundColor: Colors.green,
+          content: Text('¡Cuenta creada e inscrita con éxito en Firebase!'),
         ),
       );
+
+      Navigator.pop(context); // Volver a la pantalla de Inicio de Sesión
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'Error al registrar usuario';
+      if (e.code == 'email-already-in-use') {
+        errorMessage = 'El correo electrónico ya está registrado.';
+      } else if (e.code == 'weak-password') {
+        errorMessage = 'La contraseña debe tener mayor seguridad.';
+      } else if (e.message != null) {
+        errorMessage = e.message!;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: Colors.red, content: Text(errorMessage)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: Colors.red, content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -173,29 +225,33 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                         children: [
                           _RegistrationField(
                             label: 'Correo Electrónico Unimet',
+                            controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             validator: AppValidators.validateEmail,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
                             label: 'Nombre de Usuario',
+                            controller: _usernameController,
                             validator: AppValidators.validateUsername,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
                             label: 'Carnet Universitario',
+                            controller: _carnetController,
                             keyboardType: TextInputType.number,
                             validator: AppValidators.validateCarnet,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
                             label: 'Contraseña',
+                            controller: _passwordController,
                             obscureText: true,
                             validator: AppValidators.validatePassword,
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
-                            onPressed: _submit,
+                            onPressed: _isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _buttonBrown,
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -203,14 +259,23 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text(
-                              'Crear Cuenta',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Crear Cuenta',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
                           ),
                         ],
                       ),
@@ -257,12 +322,14 @@ class _RegistrationContentState extends State<_RegistrationContent> {
 class _RegistrationField extends StatelessWidget {
   const _RegistrationField({
     required this.label,
+    this.controller,
     this.keyboardType,
     this.obscureText = false,
     this.validator,
   });
 
   final String label;
+  final TextEditingController? controller;
   final TextInputType? keyboardType;
   final bool obscureText;
   final String? Function(String?)? validator;
@@ -275,6 +342,7 @@ class _RegistrationField extends StatelessWidget {
         Text(label, style: const TextStyle(fontSize: 14, color: Colors.black)),
         const SizedBox(height: 4),
         TextFormField(
+          controller: controller,
           keyboardType: keyboardType,
           obscureText: obscureText,
           validator: validator,

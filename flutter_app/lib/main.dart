@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/auth_service.dart';
 import 'views/landing_view.dart';
-
 import 'views/password_recovery_screen.dart';
 import 'views/registration_screen.dart';
 
-//NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
+// NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
 const _navy = Color(0xFF003B82);
 const _panelGray = Color(0xFFD9D9D9);
@@ -29,7 +30,6 @@ class UnimetSportsApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-
       home: const LoginScreen(),
     );
   }
@@ -240,6 +240,77 @@ class _LoginForm extends StatefulWidget {
 
 class _LoginFormState extends State<_LoginForm> {
   UserRole _selectedRole = UserRole.estudiante;
+  final _identifierController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _identifierController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('Por favor, complete todos los campos.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await AuthService.instance.loginUser(
+        accountIdentifier: identifier,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text('¡Inicio de sesión exitoso!'),
+        ),
+      );
+
+      // Redirección a la vista principal / catálogo
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const LandingView(),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = 'Credenciales inválidas.';
+      if (e.code == 'user-not-found') {
+        message = 'El correo o carnet no está registrado.';
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        message = 'Contraseña o credencial incorrecta.';
+      } else if (e.message != null) {
+        message = e.message!;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: Colors.red, content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: Colors.red, content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,8 +352,9 @@ class _LoginFormState extends State<_LoginForm> {
           style: TextStyle(fontSize: 18, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _identifierController,
+          decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
@@ -293,9 +365,10 @@ class _LoginFormState extends State<_LoginForm> {
           style: TextStyle(fontSize: 18, color: Colors.black),
         ),
         const SizedBox(height: 4),
-        const TextField(
+        TextField(
+          controller: _passwordController,
           obscureText: true,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
@@ -345,9 +418,7 @@ class _LoginFormState extends State<_LoginForm> {
         ),
         const SizedBox(height: 20),
         ElevatedButton(
-          onPressed: () {
-            // Access active selection via `_selectedRole`
-          },
+          onPressed: _isLoading ? null : _handleLogin,
           style: ElevatedButton.styleFrom(
             backgroundColor: _buttonBrown,
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -355,14 +426,23 @@ class _LoginFormState extends State<_LoginForm> {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: const Text(
-            'Iniciar Sesión',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : const Text(
+                  'Iniciar Sesión',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
         ),
       ],
     );
