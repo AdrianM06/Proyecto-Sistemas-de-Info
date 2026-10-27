@@ -24,6 +24,7 @@ class AppRoutes {
   static const String recuperarContrasena = '/recuperar-contrasena';
   static const String entrenador = '/entrenador';
   static const String estudiante = '/estudiante';
+  static const String perfilEstudiante = '/estudiante/perfil';
   static const String buscador = '/buscador';
   static const String perfil = '/perfil';
 
@@ -44,11 +45,19 @@ class AppRoutes {
     );
   }
 
-  /// Cierra la sesión y vuelve a la Landing Page.
+  /// Cierra la sesión y lleva de inmediato al inicio de sesión. Lo usan
+  /// la vista del entrenador y la del estudiante.
   static Future<void> cerrarSesion(BuildContext context) async {
-    final navigator = Navigator.of(context);
+    Navigator.of(context).pushNamedAndRemoveUntil(login, (route) => false);
     await AuthService.instance.signOut();
-    navigator.pushNamedAndRemoveUntil(landing, (route) => false);
+  }
+
+  /// Abre la página de perfil del estudiante.
+  static Future<void> abrirPerfilEstudiante(
+    BuildContext context,
+    SesionUsuario sesion,
+  ) {
+    return Navigator.of(context).pushNamed(perfilEstudiante, arguments: sesion);
   }
 
   /// Se usa en `MaterialApp.onGenerateRoute`.
@@ -86,6 +95,15 @@ class AppRoutes {
             rolRequerido: RolesUsuario.estudiante,
             sesionInicial: argumentos is SesionUsuario ? argumentos : null,
             constructor: construirVistaEstudiante,
+          ),
+        );
+      case perfilEstudiante:
+        return _ruta(
+          settings,
+          (_) => RutaProtegida(
+            rolRequerido: RolesUsuario.estudiante,
+            sesionInicial: argumentos is SesionUsuario ? argumentos : null,
+            constructor: construirPerfilEstudiante,
           ),
         );
       case buscador:
