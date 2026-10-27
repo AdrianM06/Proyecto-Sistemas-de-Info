@@ -47,11 +47,37 @@ void main() {
     expect(find.byKey(const Key('menu-Catálogo')), findsOneWidget);
     expect(find.byKey(const Key('menu-Pagos')), findsOneWidget);
     expect(find.text('Perfil'), findsOneWidget);
+    expect(find.text('Cambia la contraseña de usuario'), findsOneWidget);
     expect(find.text('Saldo en cuenta'), findsOneWidget);
-    expect(find.text('Retirar disciplina'), findsOneWidget);
+    expect(find.text('Saldo adeudado'), findsOneWidget);
     expect(find.text('Bs. 00,00'), findsOneWidget);
-    expect(find.text('Andrea Pérez'), findsOneWidget);
+    // Título de la tarjeta y texto del botón.
+    expect(find.text('Retirar disciplina'), findsNWidgets(2));
+    expect(
+      find.text('Cancela la inscripción a una disciplina deportiva'),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('boton-cambiar-clave')), findsOneWidget);
+    expect(find.byKey(const Key('boton-retirar-disciplina')), findsOneWidget);
+  });
+
+  testWidgets('retirar disciplina pide elegirla y confirmar', (tester) async {
+    await abrir(tester);
+
+    await tester.tap(find.byKey(const Key('boton-retirar-disciplina')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialogo-retirar')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('opcion-insc-02')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmar-retiro')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Te retiraste de Natación.'), findsOneWidget);
+
+    // Deja que el aviso termine antes de cerrar la prueba.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('cambiar clave muestra el mensaje de éxito', (tester) async {
