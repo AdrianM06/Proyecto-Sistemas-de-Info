@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 
 class StudentView extends StatelessWidget {
+  const StudentView({super.key, this.onCerrarSesion, this.onAbrirPerfil});
+
+  /// Botón "Cerrar sesión" de la barra superior (igual que en la vista del
+  /// entrenador). Si es `null`, el botón no aparece.
+  final VoidCallback? onCerrarSesion;
+
+  /// Se llama al tocar la foto de perfil de la esquina superior derecha.
+  final VoidCallback? onAbrirPerfil;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -9,7 +18,22 @@ class StudentView extends StatelessWidget {
         backgroundColor: Colors.white,
         leading: const Icon(Icons.menu, color: Colors.black),
         title: const Text('UNIMET SPORTS', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-        actions: const [Icon(Icons.person, color: Colors.grey, size: 30), SizedBox(width: 20)],
+        actions: [
+          IconButton(
+            key: const Key('avatar-perfil'),
+            tooltip: 'Mi perfil',
+            onPressed: onAbrirPerfil,
+            icon: const Icon(Icons.person, color: Colors.grey, size: 30),
+          ),
+          if (onCerrarSesion != null)
+            IconButton(
+              key: const Key('boton-cerrar-sesion'),
+              tooltip: 'Cerrar sesión',
+              onPressed: onCerrarSesion,
+              icon: const Icon(Icons.logout, color: Colors.black),
+            ),
+          const SizedBox(width: 12),
+        ],
       ),
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
