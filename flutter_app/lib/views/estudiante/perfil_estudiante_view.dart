@@ -4,12 +4,19 @@ import '../../controllers/perfil_estudiante_controller.dart';
 import '../../services/perfil_estudiante_service.dart';
 import '../../utils/formato_moneda.dart';
 
+// Colores del diseño "Perfil Estudiante".
+const _fondo = Color(0xFFF0F0F5);
+const _azul = Color(0xFF003087);
+const _naranja = Color(0xFFFF8C2A);
+const _grisCaja = Color(0xFFF2F2F7);
+const _grisTexto = Color(0xFF6B6B78);
+
 /// Página de perfil del estudiante (ruta `/estudiante/perfil`).
 ///
-/// Mantiene el diseño de la vista del estudiante: barra superior blanca con
-/// "UNIMET SPORTS", menú lateral con los botones azules (Inicio, Catálogo,
-/// Pagos) y, al centro, tres tarjetas blancas: "Perfil", "Saldo en cuenta"
-/// y "Retirar disciplina".
+/// Sigue el diseño "Perfil Estudiante": barra superior con el menú, el logo
+/// de UNIMET Sports y la foto de perfil; menú lateral con los botones azules
+/// (Inicio, Catálogo, Pagos) y tres tarjetas blancas: "Perfil" (Cambiar
+/// clave), "Saldo en cuenta" (Bs. 00,00) y "Retirar disciplina".
 class PerfilEstudianteView extends StatefulWidget {
   const PerfilEstudianteView({
     super.key,
@@ -46,8 +53,6 @@ class PerfilEstudianteView extends StatefulWidget {
 }
 
 class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
-  static final Color _azul = Colors.blue[900]!;
-
   PerfilEstudianteController get _controller => widget.controller;
 
   @override
@@ -62,6 +67,12 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     super.dispose();
   }
 
+  void _avisar(String texto, {Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: color, content: Text(texto)),
+    );
+  }
+
   Future<void> _abrirCambioDeClave() async {
     _controller.prepararCambioDeClave();
     final cambiada = await showDialog<bool>(
@@ -70,25 +81,50 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
       builder: (_) => _DialogoCambiarClave(controller: _controller),
     );
     if (cambiada == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.green[700],
-          content: Text(
-            _controller.mensajeExito ?? '¡Tu contraseña se cambió con éxito!',
-          ),
-        ),
+      _avisar(
+        _controller.mensajeExito ?? '¡Tu contraseña se cambió con éxito!',
+        color: Colors.green[700],
       );
     }
   }
 
-  Future<void> _confirmarRetiro(DisciplinaInscrita disciplina) async {
+  Future<void> _abrirRetiro() async {
+    final disciplinas = _controller.perfil?.disciplinas ?? const [];
+    if (disciplinas.isEmpty) {
+      _avisar('No estás inscrito en ninguna disciplina.');
+      return;
+    }
+
+    final elegida = await showDialog<DisciplinaInscrita>(
+      context: context,
+      builder: (contextoDialogo) => SimpleDialog(
+        key: const Key('dialogo-retirar'),
+        title: const Text('¿De qué disciplina te quieres retirar?'),
+        children: [
+          for (final disciplina in disciplinas)
+            SimpleDialogOption(
+              key: Key('opcion-${disciplina.inscripcionId}'),
+              onPressed: () => Navigator.of(contextoDialogo).pop(disciplina),
+              child: Row(
+                children: [
+                  const Icon(Icons.sports, color: _azul),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(disciplina.nombre)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (elegida == null || !mounted) return;
+
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (contextoDialogo) => AlertDialog(
         title: const Text('Retirar disciplina'),
         content: Text(
-          '¿Seguro que quieres retirarte de ${disciplina.nombre}? '
-          'Perderás tu cupo en la disciplina.',
+          '¿Seguro que quieres cancelar tu inscripción en ${elegida.nombre}? '
+          'Perderás tu cupo.',
         ),
         actions: [
           TextButton(
@@ -105,84 +141,143 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
       ),
     );
     if (confirmar != true || !mounted) return;
-    final retirada = await _controller.retirarDisciplina(disciplina);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: retirada ? Colors.green[700] : Colors.red[700],
-        content: Text(
-          retirada
-              ? 'Te retiraste de ${disciplina.nombre}.'
-              : (_controller.error ?? 'No se pudo retirar la disciplina.'),
-        ),
-      ),
-    );
-  }
 
-  void _proximamente(String seccion) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$seccion estará disponible pronto.')),
+    final retirada = await _controller.retirarDisciplina(elegida);
+    if (!mounted) return;
+    _avisar(
+      retirada
+          ? 'Te retiraste de ${elegida.nombre}.'
+          : (_controller.error ?? 'No se pudo retirar la disciplina.'),
+      color: retirada ? Colors.green[700] : Colors.red[700],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: const Icon(Icons.menu, color: Colors.black),
-        title: const Text(
-          'UNIMET SPORTS',
-          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+      backgroundColor: _fondo,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _barraSuperior(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _menuLateral(),
+                  Expanded(
+                    child: ListenableBuilder(
+                      listenable: _controller,
+                      builder: (context, _) => _contenido(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            key: const Key('avatar-perfil'),
-            tooltip: 'Mi perfil',
-            onPressed: null,
-            icon: Icon(Icons.person, color: _azul, size: 30),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------- estructura
+
+  Widget _barraSuperior() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            color: Colors.white,
+            child: const Icon(Icons.menu, color: Colors.black54, size: 28),
           ),
-          if (widget.onCerrarSesion != null)
+          const SizedBox(width: 18),
+          Image.asset(
+            'assets/images/unimet_sports_logo.png',
+            height: 46,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const Text(
+              'UNIMET SPORTS',
+              style: TextStyle(color: _naranja, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const Spacer(),
+          Tooltip(
+            message: 'Mi perfil',
+            child: Container(
+              key: const Key('avatar-perfil'),
+              width: 38,
+              height: 38,
+              color: const Color(0xFFE0E0E0),
+              child: const Icon(Icons.person, color: Colors.grey, size: 32),
+            ),
+          ),
+          if (widget.onCerrarSesion != null) ...[
+            const SizedBox(width: 6),
             IconButton(
               key: const Key('boton-cerrar-sesion'),
               tooltip: 'Cerrar sesión',
               onPressed: widget.onCerrarSesion,
               icon: const Icon(Icons.logout, color: Colors.black),
             ),
-          const SizedBox(width: 12),
+          ],
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 150,
-            padding: const EdgeInsets.only(top: 20),
-            child: Column(
-              children: [
-                _botonLateral(
-                  'Inicio',
-                  widget.onIrAInicio ??
-                      () {
-                        Navigator.of(context).maybePop();
-                      },
-                ),
-                _botonLateral(
-                  'Catálogo',
-                  widget.onIrACatalogo ?? () => _proximamente('El catálogo'),
-                ),
-                _botonLateral('Pagos', () => _proximamente('Pagos')),
-              ],
+    );
+  }
+
+  Widget _menuLateral() {
+    return SizedBox(
+      width: 150,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 18, right: 14),
+        child: Column(
+          children: [
+            _botonLateral(
+              'Inicio',
+              widget.onIrAInicio ??
+                  () {
+                    Navigator.of(context).maybePop();
+                  },
             ),
-          ),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: _controller,
-              builder: (context, _) => _contenido(),
+            _botonLateral(
+              'Catálogo',
+              widget.onIrACatalogo ??
+                  () => _avisar('El catálogo estará disponible pronto.'),
             ),
+            _botonLateral(
+              'Pagos',
+              () => _avisar('Pagos estará disponible pronto.'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _botonLateral(String titulo, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        height: 30,
+        child: ElevatedButton(
+          key: Key('menu-$titulo'),
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _azul,
+            elevation: 0,
+            padding: EdgeInsets.zero,
+            shape: const StadiumBorder(),
           ),
-        ],
+          child: Text(
+            titulo,
+            style: const TextStyle(color: Colors.white, fontSize: 17),
+          ),
+        ),
       ),
     );
   }
@@ -215,96 +310,40 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const separacion = 20.0;
-          final columnas = constraints.maxWidth >= 900 ? 3 : 1;
-          final ancho =
-              (constraints.maxWidth - separacion * (columnas - 1)) / columnas;
-          return Wrap(
-            spacing: separacion,
-            runSpacing: separacion,
+      padding: const EdgeInsets.fromLTRB(28, 0, 20, 24),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(width: ancho, child: _tarjetaPerfil(perfil)),
-              SizedBox(width: ancho, child: _tarjetaSaldo(perfil)),
-              SizedBox(width: ancho, child: _tarjetaRetirar(perfil)),
+              _tarjetaPerfil(),
+              const SizedBox(height: 32),
+              _tarjetaSaldo(perfil),
+              const SizedBox(height: 32),
+              _tarjetaRetirar(),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  // ----------------------------------------------------------------- tarjetas
+  // ------------------------------------------------------------- tarjetas
 
-  Widget _tarjetaPerfil(PerfilEstudiante perfil) {
-    final usuario = perfil.usuario;
+  Widget _tarjetaPerfil() {
     final exito = _controller.mensajeExito;
     return _Tarjeta(
       key: const Key('tarjeta-perfil'),
       titulo: 'Perfil',
       children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: _azul,
-              child: Text(
-                usuario.iniciales,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    usuario.nombreCompleto,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _azul,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Estudiante',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _Dato(etiqueta: 'Correo', valor: usuario.email),
-        _Dato(etiqueta: 'Carnet', valor: usuario.carnet ?? 'No registrado'),
-        if ((usuario.carrera ?? '').isNotEmpty)
-          _Dato(etiqueta: 'Carrera', valor: usuario.carrera!),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            key: const Key('boton-cambiar-clave'),
-            onPressed: _abrirCambioDeClave,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            child: const Text(
-              'Cambiar clave',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
+        const SizedBox(height: 22),
+        _AccionConDescripcion(
+          botonKey: const Key('boton-cambiar-clave'),
+          textoBoton: 'Cambiar clave',
+          descripcion: 'Cambia la contraseña de usuario',
+          onPressed: _abrirCambioDeClave,
         ),
         if (exito != null) ...[
           const SizedBox(height: 10),
@@ -328,97 +367,66 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
       key: const Key('tarjeta-saldo'),
       titulo: 'Saldo en cuenta',
       children: [
-        const SizedBox(height: 8),
-        Text(
-          formatoBolivares(perfil.saldo),
-          key: const Key('saldo-cuenta'),
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.bold,
-            color: _azul,
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: _grisCaja,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Saldo disponible para el pago de disciplinas.',
-          style: TextStyle(color: Colors.grey, fontSize: 12),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saldo adeudado',
+                      style: TextStyle(color: _grisTexto, fontSize: 12),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Moneda: Bs.',
+                      style: TextStyle(color: _grisTexto, fontSize: 8),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                formatoBolivares(perfil.saldo),
+                key: const Key('saldo-cuenta'),
+                style: const TextStyle(
+                  color: _azul,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _tarjetaRetirar(PerfilEstudiante perfil) {
+  Widget _tarjetaRetirar() {
     return _Tarjeta(
       key: const Key('tarjeta-retirar'),
       titulo: 'Retirar disciplina',
       children: [
-        if (perfil.disciplinas.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'No estás inscrito en ninguna disciplina.',
-              style: TextStyle(color: Colors.grey),
-            ),
-          )
-        else
-          for (final disciplina in perfil.disciplinas)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle, color: _azul),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      disciplina.nombre,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  OutlinedButton(
-                    key: Key('retirar-${disciplina.inscripcionId}'),
-                    onPressed: _controller.retirando == null
-                        ? () => _confirmarRetiro(disciplina)
-                        : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red[700],
-                      side: BorderSide(color: Colors.red[700]!),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: _controller.retirando == disciplina.inscripcionId
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Retirar'),
-                  ),
-                ],
-              ),
-            ),
-      ],
-    );
-  }
-
-  Widget _botonLateral(String titulo, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10),
-      child: ElevatedButton(
-        key: Key('menu-$titulo'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _azul,
-          minimumSize: const Size(double.infinity, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        const SizedBox(height: 10),
+        _AccionConDescripcion(
+          botonKey: const Key('boton-retirar-disciplina'),
+          textoBoton: 'Retirar disciplina',
+          descripcion: 'Cancela la inscripción a una disciplina deportiva',
+          cargando: _controller.retirando != null,
+          onPressed: _abrirRetiro,
         ),
-        onPressed: onPressed,
-        child: Text(titulo, style: const TextStyle(color: Colors.white)),
-      ),
+      ],
     );
   }
 }
 
-/// Tarjeta blanca con título, como las de la vista del estudiante.
+/// Tarjeta blanca con título del diseño "Perfil Estudiante".
 class _Tarjeta extends StatelessWidget {
   const _Tarjeta({super.key, required this.titulo, required this.children});
 
@@ -427,51 +435,72 @@ class _Tarjeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              titulo,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ...children,
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            titulo,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+          ...children,
+        ],
       ),
     );
   }
 }
 
-class _Dato extends StatelessWidget {
-  const _Dato({required this.etiqueta, required this.valor});
+/// Botón naranja redondeado con su descripción al lado.
+class _AccionConDescripcion extends StatelessWidget {
+  const _AccionConDescripcion({
+    required this.botonKey,
+    required this.textoBoton,
+    required this.descripcion,
+    required this.onPressed,
+    this.cargando = false,
+  });
 
-  final String etiqueta;
-  final String valor;
+  final Key botonKey;
+  final String textoBoton;
+  final String descripcion;
+  final VoidCallback onPressed;
+  final bool cargando;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 70,
-            child: Text(
-              etiqueta,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+    return Row(
+      children: [
+        SizedBox(
+          height: 30,
+          child: ElevatedButton(
+            key: botonKey,
+            onPressed: cargando ? null : onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _naranja,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: const StadiumBorder(),
             ),
+            child: cargando
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(textoBoton, style: const TextStyle(fontSize: 12)),
           ),
-          Expanded(child: Text(valor, style: const TextStyle(fontSize: 13))),
-        ],
-      ),
+        ),
+        const SizedBox(width: 22),
+        Expanded(
+          child: Text(descripcion, style: const TextStyle(fontSize: 12)),
+        ),
+      ],
     );
   }
 }
@@ -591,7 +620,7 @@ class _DialogoCambiarClaveState extends State<_DialogoCambiarClave> {
             ),
             FilledButton(
               key: const Key('guardar-clave'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              style: FilledButton.styleFrom(backgroundColor: _naranja),
               onPressed: ocupado ? null : _guardar,
               child: ocupado
                   ? const SizedBox(
