@@ -19,6 +19,7 @@ class Deporte {
     required this.entrenadorId,
     this.horarios = const [],
     this.lugar = '',
+    this.etiquetas = const [],
   });
 
   final String id;
@@ -28,6 +29,7 @@ class Deporte {
   final String entrenadorId;
   final List<String> horarios;
   final String lugar;
+  final List<String> etiquetas;
 
   /// Horarios en una sola línea, por ejemplo "Lun 4:00 pm · Mié 4:00 pm".
   String get horariosTexto =>
@@ -45,6 +47,10 @@ class Deporte {
       entrenadorId: textoDe(json['entrenadorId']),
       horarios: _leerHorarios(json['horarios']),
       lugar: textoDe(json['lugar']),
+      etiquetas: (json['etiquetas'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
@@ -60,6 +66,7 @@ class Deporte {
         'entrenadorId': entrenadorId,
         'horarios': horarios,
         'lugar': lugar,
+        'etiquetas': etiquetas,
       };
 
   static List<String> _leerHorarios(dynamic valor) {
