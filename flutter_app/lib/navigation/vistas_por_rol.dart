@@ -43,3 +43,7 @@ Widget construirPerfilEstudiante(BuildContext context, SesionUsuario sesion) {
     onIrACatalogo: () => Navigator.of(context).pushNamed(AppRoutes.buscador),
   );
 }
+
+Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
+  return const AdminDashboardView();
+}
