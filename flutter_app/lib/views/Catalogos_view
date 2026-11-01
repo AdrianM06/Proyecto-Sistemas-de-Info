@@ -1,0 +1,384 @@
+import 'package:flutter/material.dart';
+
+// Modelo de datos para una disciplina deportiva
+class SportItem {
+  final String id;
+  final String name;
+  final String category; // 'Equipo' o 'Individual'
+  final String locationType; // 'Cancha techada' o 'Al aire libre'
+  final String locationName;
+  final String schedule;
+  final String trainer;
+  final int availableSpots;
+  final IconData icon;
+
+  SportItem({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.locationType,
+    required this.locationName,
+    required this.schedule,
+    required this.trainer,
+    required this.availableSpots,
+    required this.icon,
+  });
+}
+
+class CatalogoView extends StatefulWidget {
+  const CatalogoView({super.key});
+
+  @override
+  State<CatalogoView> createState() => _CatalogoViewState();
+}
+
+class _CatalogoViewState extends State<CatalogoView> {
+  // Datos de ejemplo del catálogo
+  final List<SportItem> _sportsList = [
+    SportItem(
+      id: '1',
+      name: 'Fútbol Campo',
+      category: 'Equipo',
+      locationType: 'Al aire libre',
+      locationName: 'Cancha de fútbol',
+      schedule: 'Lun y Mié 16:00 - 17:30',
+      trainer: 'Prof. Carlos Ramírez',
+      availableSpots: 8,
+      icon: Icons.sports_soccer,
+    ),
+    SportItem(
+      id: '2',
+      name: 'Baloncesto',
+      category: 'Equipo',
+      locationType: 'Cancha techada',
+      locationName: 'Gimnasio principal',
+      schedule: 'Mar y Jue 17:00 - 18:30',
+      trainer: 'Prof. Andrés Silva',
+      availableSpots: 5,
+      icon: Icons.sports_basketball,
+    ),
+    SportItem(
+      id: '3',
+      name: 'Voleibol',
+      category: 'Equipo',
+      locationType: 'Cancha techada',
+      locationName: 'Gimnasio secundario',
+      schedule: 'Lun y Mié 17:30 - 19:00',
+      trainer: 'Profa. Elena Gómez',
+      availableSpots: 0,
+      icon: Icons.sports_volleyball,
+    ),
+    SportItem(
+      id: '4',
+      name: 'Tenis de Campo',
+      category: 'Individual',
+      locationType: 'Al aire libre',
+      locationName: 'Canchas de tenis',
+      schedule: 'Mar y Jue 15:00 - 16:30',
+      trainer: 'Prof. Roberto Blanco',
+      availableSpots: 3,
+      icon: Icons.sports_tennis,
+    ),
+    SportItem(
+      id: '5',
+      name: 'Natación',
+      category: 'Individual',
+      locationType: 'Al aire libre',
+      locationName: 'Piscina olímpica',
+      schedule: 'Viernes 14:00 - 16:00',
+      trainer: 'Profa. Marina López',
+      availableSpots: 12,
+      icon: Icons.pool,
+    ),
+  ];
+
+  // Estados de Filtro
+  String _searchQuery = '';
+  String _selectedCategory = 'Todas'; // 'Todas', 'Equipo', 'Individual'
+  String _selectedLocation = 'Todas'; // 'Todas', 'Cancha techada', 'Al aire libre'
+  bool _onlyAvailableSpots = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Aplicar lógica de filtrado
+    final filteredSports = _sportsList.where((sport) {
+      final matchesSearch = sport.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          sport.trainer.toLowerCase().contains(_searchQuery.toLowerCase());
+
+      final matchesCategory = _selectedCategory == 'Todas' || sport.category == _selectedCategory;
+
+      final matchesLocation = _selectedLocation == 'Todas' || sport.locationType == _selectedLocation;
+
+      final matchesSpots = !_onlyAvailableSpots || sport.availableSpots > 0;
+
+      return matchesSearch && matchesCategory && matchesLocation && matchesSpots;
+    }).toList();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F9),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Título de la vista
+            const Text(
+              "Catálogo de Deportes",
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0A3871)),
+            ),
+            const Text(
+              "Explora y filtra las disciplinas deportivas disponibles en la universidad.",
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+
+            // Panel de Filtros
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Buscador por texto
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Buscar por disciplina o entrenador...',
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFF0A3871)),
+                        isDense: true,
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Opciones de filtrado (Dropdowns + Switch)
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        // Categoria
+                        _buildFilterDropdown(
+                          label: "Tipo",
+                          value: _selectedCategory,
+                          items: ['Todas', 'Equipo', 'Individual'],
+                          onChanged: (val) => setState(() => _selectedCategory = val!),
+                        ),
+
+                        // Ubicación
+                        _buildFilterDropdown(
+                          label: "Instalación",
+                          value: _selectedLocation,
+                          items: ['Todas', 'Cancha techada', 'Al aire libre'],
+                          onChanged: (val) => setState(() => _selectedLocation = val!),
+                        ),
+
+                        // Checkbox Solo Disponibles
+                        FilterChip(
+                          label: const Text("Solo con cupos"),
+                          selected: _onlyAvailableSpots,
+                          selectedColor: const Color(0xFFFF7900).withAlpha(40),
+                          checkmarkColor: const Color(0xFFFF7900),
+                          onSelected: (val) => setState(() => _onlyAvailableSpots = val),
+                        ),
+
+                        // Limpiar Filtros
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _searchQuery = '';
+                              _selectedCategory = 'Todas';
+                              _selectedLocation = 'Todas';
+                              _onlyAvailableSpots = false;
+                            });
+                          },
+                          icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
+                          label: const Text("Limpiar filtros", style: TextStyle(color: Colors.grey)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Grilla de Disciplinas Deportivas
+            filteredSports.isEmpty
+                ? _buildEmptyState()
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      int crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.25,
+                        ),
+                        itemCount: filteredSports.length,
+                        itemBuilder: (context, index) {
+                          return _buildSportCard(filteredSports[index]);
+                        },
+                      );
+                    },
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown({
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isDense: true,
+              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13)))).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSportCard(SportItem sport) {
+    bool hasSpots = sport.availableSpots > 0;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: const Color(0xFF0A3871).withAlpha(20),
+                  child: Icon(sport.icon, color: const Color(0xFF0A3871)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(sport.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(sport.category, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: hasSpots ? Colors.green[50] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    hasSpots ? '${sport.availableSpots} cupos' : 'Agotado',
+                    style: TextStyle(
+                      color: hasSpots ? Colors.green[800] : Colors.red[800],
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(child: Text("${sport.locationName} (${sport.locationType})", style: const TextStyle(fontSize: 12))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(child: Text(sport.schedule, style: const TextStyle(fontSize: 12))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.person_outline, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(child: Text(sport.trainer, style: const TextStyle(fontSize: 12))),
+              ],
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF7900),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Detalles de ${sport.name}")),
+                  );
+                },
+                child: const Text("Ver detalles"),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40.0),
+        child: Column(
+          children: const [
+            Icon(Icons.search_off, size: 48, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              "No se encontraron disciplinas deportivas con los filtros seleccionados.",
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
