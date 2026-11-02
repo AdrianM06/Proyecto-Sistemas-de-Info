@@ -22,9 +22,20 @@ void main() {
     await abrirApp(tester);
 
     expect(find.text('Bienvenido a Samán Deportivo'), findsOneWidget);
-    expect(find.text('UNIMET'), findsOneWidget);
     expect(find.byKey(const Key('landing-boton-login')), findsOneWidget);
+    expect(find.byKey(const Key('landing-boton-acceder')), findsOneWidget);
+    expect(find.text('Misión'), findsOneWidget);
+    expect(find.text('Visión'), findsOneWidget);
     expect(find.text('INICIAR SESIÓN'), findsNothing);
+  });
+
+  testWidgets('el botón Acceder de la barra lleva al login', (tester) async {
+    await abrirApp(tester);
+
+    await tester.tap(find.byKey(const Key('landing-boton-acceder')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INICIAR SESIÓN'), findsOneWidget);
   });
 
   testWidgets('el botón principal de la Landing lleva al login', (tester) async {
