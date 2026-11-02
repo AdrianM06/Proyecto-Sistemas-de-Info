@@ -65,19 +65,41 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('crear cuenta abre el registro con el rol elegido', (tester) async {
+  testWidgets('crear cuenta abre el registro solo de estudiantes', (
+    tester,
+  ) async {
+    await abrirApp(tester);
+    await irAlLogin(tester);
+
+    await tester.tap(find.byKey(const Key('boton-crear-cuenta')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('REGISTRACIÓN'), findsOneWidget);
+    expect(find.byKey(const Key('boton-registrar')), findsOneWidget);
+    expect(find.byKey(const Key('registro-nota-entrenadores')), findsOneWidget);
+    expect(find.byKey(const Key('registro-rol-entrenador')), findsNothing);
+  });
+
+  testWidgets('un entrenador no puede crear su cuenta desde el login', (
+    tester,
+  ) async {
     await abrirApp(tester);
     await irAlLogin(tester);
 
     await tester.tap(find.text('Entrenador'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('boton-crear-cuenta')));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(find.text('REGISTRACIÓN'), findsOneWidget);
-    expect(find.byKey(const Key('registro-rol-entrenador')), findsOneWidget);
-    expect(find.byKey(const Key('registro-rol-estudiante')), findsOneWidget);
-    expect(find.byKey(const Key('boton-registrar')), findsOneWidget);
+    expect(find.text('REGISTRACIÓN'), findsNothing);
+    expect(
+      find.textContaining('Las cuentas de entrenador las crea el administrador'),
+      findsOneWidget,
+    );
+
+    // Deja que el aviso termine antes de cerrar la prueba.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('abre la recuperación y valida el correo y el carnet', (

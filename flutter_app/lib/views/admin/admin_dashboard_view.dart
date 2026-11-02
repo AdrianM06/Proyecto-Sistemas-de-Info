@@ -5,19 +5,100 @@ import '../../models/deporte.dart';
 import '../../services/firestore_service.dart';
 
 const _azul = Color(0xFF003B82);
+const _naranja = Color(0xFFF58220);
 
+/// Panel del administrador: accesos rápidos (registrar entrenadores, crear
+/// disciplinas, gestionar estudiantes) y la lista de deportes con sus
+/// horarios y etiquetas.
 class AdminDashboardView extends StatelessWidget {
-  const AdminDashboardView({super.key});
+  const AdminDashboardView({
+    super.key,
+    this.nombreAdmin = 'Administrador',
+    this.onCerrarSesion,
+    this.onRegistrarEntrenador,
+    this.onCrearDeporte,
+    this.onGestionarEstudiantes,
+  });
+
+  final String nombreAdmin;
+  final VoidCallback? onCerrarSesion;
+  final VoidCallback? onRegistrarEntrenador;
+  final VoidCallback? onCrearDeporte;
+  final VoidCallback? onGestionarEstudiantes;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard - Deportes y Horarios'),
+        title: const Text('Panel de administración'),
         backgroundColor: _azul,
         foregroundColor: Colors.white,
+        actions: [
+          if (onCerrarSesion != null)
+            IconButton(
+              key: const Key('boton-cerrar-sesion'),
+              tooltip: 'Cerrar sesión',
+              onPressed: onCerrarSesion,
+              icon: const Icon(Icons.logout),
+            ),
+        ],
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+            child: Text(
+              'Hola, $nombreAdmin',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: _azul,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _AccionAdmin(
+                  key: const Key('admin-registrar-entrenador'),
+                  icono: Icons.person_add_alt_1,
+                  titulo: 'Registrar entrenador',
+                  onTap: onRegistrarEntrenador,
+                ),
+                _AccionAdmin(
+                  key: const Key('admin-crear-deporte'),
+                  icono: Icons.add_circle_outline,
+                  titulo: 'Crear disciplina',
+                  onTap: onCrearDeporte,
+                ),
+                _AccionAdmin(
+                  key: const Key('admin-gestionar-estudiantes'),
+                  icono: Icons.groups_outlined,
+                  titulo: 'Gestionar estudiantes',
+                  onTap: onGestionarEstudiantes,
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              'Deportes y horarios',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(child: _listaDeportes()),
+        ],
+      ),
+    );
+  }
+
+  Widget _listaDeportes() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirestoreService.instance.sports.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -117,6 +198,52 @@ class AdminDashboardView extends StatelessWidget {
             },
           );
         },
+    );
+  }
+}
+
+class _AccionAdmin extends StatelessWidget {
+  const _AccionAdmin({
+    super.key,
+    required this.icono,
+    required this.titulo,
+    this.onTap,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: Material(
+        color: Colors.white,
+        elevation: 1,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icono, color: _naranja, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    titulo,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _azul,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

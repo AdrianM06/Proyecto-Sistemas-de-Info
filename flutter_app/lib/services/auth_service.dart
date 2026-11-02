@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import '../firebase_options.dart';
 
 /// Roles que puede tener una cuenta (campo `rol` de la colección `users`).
 class RolesUsuario {
@@ -7,12 +10,15 @@ class RolesUsuario {
 
   static const String estudiante = 'estudiante';
   static const String entrenador = 'entrenador';
+  static const String admin = 'admin';
 
   /// Normaliza el texto guardado en Firestore. Cualquier valor desconocido
-  /// se toma como estudiante.
+  /// se toma como estudiante (el rol con menos permisos).
   static String desdeTexto(Object? valor) {
     final texto = (valor ?? '').toString().trim().toLowerCase();
-    return texto == entrenador ? entrenador : estudiante;
+    if (texto == entrenador) return entrenador;
+    if (texto == admin || texto == 'administrador') return admin;
+    return estudiante;
   }
 }
 
@@ -35,6 +41,7 @@ class SesionUsuario {
 
   bool get esEntrenador => rol == RolesUsuario.entrenador;
   bool get esEstudiante => rol == RolesUsuario.estudiante;
+  bool get esAdmin => rol == RolesUsuario.admin;
 }
 
 /// Patrón Singleton: único punto de acceso a Firebase Authentication y al
@@ -52,8 +59,10 @@ class AuthService {
   /// Usuario de Firebase Authentication con la sesión abierta, si hay uno.
   User? get usuarioActual => _auth.currentUser;
 
-  /// Crea la cuenta en Firebase Authentication y guarda su perfil con el
-  /// [rol] indicado (`estudiante` o `entrenador`) en `users/{uid}`.
+  /// Registro público: crea la cuenta en Firebase Authentication y guarda
+  /// su perfil en `users/{uid}`. Desde el registro público solo se pueden
+  /// crear **estudiantes**; los entrenadores los registra el administrador
+  /// con [registrarEntrenador].
   ///
   /// Si el carnet ya está registrado lanza una [FirebaseAuthException] con
   /// el código `carnet-already-in-use`. Si falla el guardado del perfil, se
@@ -68,6 +77,13 @@ class AuthService {
     final correo = email.trim().toLowerCase();
     final carnetLimpio = carnet.trim();
     final rolLimpio = RolesUsuario.desdeTexto(rol);
+    if (rolLimpio != RolesUsuario.estudiante) {
+      throw FirebaseAuthException(
+        code: 'rol-no-permitido',
+        message:
+            'Las cuentas de entrenador las crea el administrador desde su panel.',
+      );
+    }
 
     final carnetExistente = await _users
         .where('carnet', isEqualTo: carnetLimpio)
@@ -209,6 +225,104 @@ class AuthService {
   /// Cierra la sesión actual.
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // ------------------------------------------------ panel del administrador
+
+  /// Nombre de la app secundaria de Firebase con la que el admin crea
+  /// cuentas. Así la cuenta nueva no reemplaza la sesión del admin.
+  static const String _appRegistro = 'registro-entrenadores';
+
+  /// Lanza una excepción si quien tiene la sesión abierta no es admin.
+  Future<User> _verificarAdmin() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'no-autorizado',
+        message: 'Tu sesión expiró. Vuelve a iniciar sesión.',
+      );
+    }
+    final doc = await _users.doc(user.uid).get();
+    if (RolesUsuario.desdeTexto(doc.data()?['rol']) != RolesUsuario.admin) {
+      throw FirebaseAuthException(
+        code: 'no-autorizado',
+        message: 'Solo un administrador puede registrar entrenadores.',
+      );
+    }
+    return user;
+  }
+
+  Future<FirebaseAuth> _authSecundario() async {
+    FirebaseApp app;
+    try {
+      app = Firebase.app(_appRegistro);
+    } catch (_) {
+      app = await Firebase.initializeApp(
+        name: _appRegistro,
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+    return FirebaseAuth.instanceFor(app: app);
+  }
+
+  /// Registra un entrenador. Solo lo puede hacer un admin con sesión abierta.
+  ///
+  /// La cuenta se crea con una instancia secundaria de Firebase Auth para no
+  /// cerrar la sesión del admin. El perfil se guarda en `users/{uid}` con
+  /// `rol: "entrenador"` y, si se indica [deporteId], el entrenador queda
+  /// asignado a esa disciplina (`sports/{deporteId}.entrenadorId`).
+  /// Devuelve el uid del entrenador nuevo.
+  Future<String> registrarEntrenador({
+    required String email,
+    required String nombre,
+    required String apellido,
+    required String password,
+    String cedula = '',
+    String telefono = '',
+    String? deporteId,
+  }) async {
+    final admin = await _verificarAdmin();
+    final correo = email.trim().toLowerCase();
+
+    final authRegistro = await _authSecundario();
+    final credential = await authRegistro.createUserWithEmailAndPassword(
+      email: correo,
+      password: password,
+    );
+    final entrenador = credential.user;
+    if (entrenador == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-created',
+        message: 'No se pudo crear la cuenta. Intenta de nuevo.',
+      );
+    }
+
+    try {
+      await _users.doc(entrenador.uid).set({
+        'uid': entrenador.uid,
+        'email': correo,
+        'nombre': nombre.trim(),
+        'apellido': apellido.trim(),
+        'cedula': cedula.trim(),
+        'telefono': telefono.trim(),
+        'rol': RolesUsuario.entrenador,
+        'estadoActivo': true,
+        'creadoPor': admin.uid,
+        'fechaRegistro': FieldValue.serverTimestamp(),
+      });
+      if (deporteId != null && deporteId.isNotEmpty) {
+        await _firestore
+            .collection('sports')
+            .doc(deporteId)
+            .update({'entrenadorId': entrenador.uid});
+      }
+    } catch (e) {
+      await entrenador.delete();
+      rethrow;
+    } finally {
+      await authRegistro.signOut();
+    }
+    return entrenador.uid;
   }
 
   static String _nombreVisible(Map<String, dynamic> datos, String email) {
