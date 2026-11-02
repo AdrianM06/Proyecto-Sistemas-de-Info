@@ -27,6 +27,9 @@ class AppRoutes {
   static const String perfilEstudiante = '/estudiante/perfil';
   static const String buscador = '/buscador';
   static const String perfil = '/perfil';
+  static const String adminDashboard = '/admin/dashboard';
+  static const String gestionEstudiantes = '/admin/estudiantes';
+  static const String crearDeporte = '/admin/crear-deporte';
 
   /// Ruta de inicio según el rol guardado en la base de datos.
   static String rutaParaRol(String rol) =>
@@ -110,6 +113,14 @@ class AppRoutes {
         return _ruta(settings, (_) => BuscadorScreen.conFirestore());
       case perfil:
         return _ruta(settings, (_) => ProfileView());
+      case adminDashboard:
+        return _ruta(
+          settings,
+          (_) => const RutaProtegida(
+            rolRequerido: 'admin',
+            constructor: construirVistaAdmin,
+          ),
+        );
       default:
         return _ruta(
           const RouteSettings(name: landing),
