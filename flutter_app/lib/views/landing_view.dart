@@ -251,32 +251,38 @@ class _Portada extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: escritorio ? 560 : 620,
+    // La altura mínima da el aspecto de portada; si el texto necesita más
+    // espacio (pantallas angostas o letra grande), la portada crece.
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: escritorio ? 560 : 620),
       child: Stack(
-        fit: StackFit.expand,
+        alignment: Alignment.centerLeft,
         children: [
-          Image.asset(
-            'assets/images/tennis_stock_photo.jpg',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                const ColoredBox(color: _azul),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/tennis_stock_photo.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const ColoredBox(color: _azul),
+            ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  _azulOscuro.withValues(alpha: 0.95),
-                  _azul.withValues(alpha: 0.75),
-                  _azul.withValues(alpha: 0.35),
-                ],
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    _azulOscuro.withValues(alpha: 0.95),
+                    _azul.withValues(alpha: 0.75),
+                    _azul.withValues(alpha: 0.35),
+                  ],
+                ),
               ),
             ),
           ),
           _Contenido(
-            vertical: 48,
+            vertical: 56,
             child: Align(
               alignment: Alignment.centerLeft,
               child: ConstrainedBox(
