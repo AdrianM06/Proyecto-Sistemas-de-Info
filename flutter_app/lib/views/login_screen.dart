@@ -8,7 +8,8 @@ import '../services/auth_service.dart';
 ///
 /// "Iniciar Sesión" valida las credenciales con Firebase Authentication,
 /// lee el rol del usuario en la colección `users` y lo envía a la vista de
-/// su rol. "Crear cuenta" abre el registro con el rol seleccionado.
+/// su rol (estudiante, entrenador o admin). "Crear cuenta" abre el registro
+/// de estudiantes; las cuentas de entrenador las crea el administrador.
 
 // NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
@@ -254,7 +255,9 @@ class _LoginFormState extends State<_LoginForm> {
 
       if (!mounted) return;
 
-      final rolTexto = sesion.esEntrenador ? 'entrenador' : 'estudiante';
+      final rolTexto = sesion.esAdmin
+          ? 'administrador'
+          : (sesion.esEntrenador ? 'entrenador' : 'estudiante');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.green,
@@ -429,12 +432,18 @@ class _LoginFormState extends State<_LoginForm> {
           onPressed: _isLoading
               ? null
               : () {
-                  Navigator.of(context).pushNamed(
-                    AppRoutes.registro,
-                    arguments: _selectedRole == UserRole.entrenador
-                        ? RolesUsuario.entrenador
-                        : RolesUsuario.estudiante,
-                  );
+                  if (_selectedRole == UserRole.entrenador) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Las cuentas de entrenador las crea el administrador. '
+                          'Pídele tus datos de acceso.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.of(context).pushNamed(AppRoutes.registro);
                 },
           style: OutlinedButton.styleFrom(
             foregroundColor: _buttonBrown,

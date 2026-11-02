@@ -7,18 +7,14 @@ import '../utils/app_validators.dart';
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
 const _navy = Color(0xFF003B82);
-const _orange = Color(0xFFF58220);
 
-/// Registro de cuentas (ruta `/registro`). Guarda el usuario en Firebase
-/// Authentication y su perfil con el rol elegido en la colección `users`.
+/// Registro público de estudiantes (ruta `/registro`). Guarda el usuario en
+/// Firebase Authentication y su perfil con `rol: "estudiante"` en `users`.
+///
+/// Los entrenadores ya no se registran aquí: los crea el administrador desde
+/// su panel.
 class RegistrationScreen extends StatelessWidget {
-  const RegistrationScreen({
-    super.key,
-    this.rolInicial = RolesUsuario.estudiante,
-  });
-
-  /// Rol marcado al abrir la pantalla (viene del selector del login).
-  final String rolInicial;
+  const RegistrationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +35,7 @@ class RegistrationScreen extends StatelessWidget {
                             constraints: BoxConstraints(
                               minHeight: panelConstraints.maxHeight,
                             ),
-                            child: _RegistrationContent(rolInicial: rolInicial),
+                            child: const _RegistrationContent(),
                           ),
                         );
                       },
@@ -56,7 +52,7 @@ class RegistrationScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 320, child: _RegistrationHero()),
-                  _RegistrationContent(rolInicial: rolInicial),
+                  const _RegistrationContent(),
                 ],
               ),
             ),
@@ -122,9 +118,7 @@ class _RegistrationHero extends StatelessWidget {
 }
 
 class _RegistrationContent extends StatefulWidget {
-  const _RegistrationContent({required this.rolInicial});
-
-  final String rolInicial;
+  const _RegistrationContent();
 
   @override
   State<_RegistrationContent> createState() => _RegistrationContentState();
@@ -139,7 +133,6 @@ class _RegistrationContentState extends State<_RegistrationContent> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  late String _rol = RolesUsuario.desdeTexto(widget.rolInicial);
 
   @override
   void dispose() {
@@ -161,7 +154,7 @@ class _RegistrationContentState extends State<_RegistrationContent> {
         username: _usernameController.text,
         carnet: _carnetController.text,
         password: _passwordController.text,
-        rol: _rol,
+        rol: RolesUsuario.estudiante,
       );
 
       if (!mounted) return;
@@ -226,6 +219,17 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                     letterSpacing: 0.4,
                   ),
                 ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Registro de estudiantes · ¿Eres entrenador? Tu cuenta la crea el administrador.',
+                  key: Key('registro-nota-entrenadores'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 450),
@@ -240,39 +244,6 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            'Tipo de cuenta',
-                            style: TextStyle(fontSize: 14, color: Colors.black),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _OpcionRol(
-                                  key: const Key('registro-rol-estudiante'),
-                                  etiqueta: 'Estudiante',
-                                  color: _orange,
-                                  seleccionado: _rol == RolesUsuario.estudiante,
-                                  onTap: () => setState(
-                                    () => _rol = RolesUsuario.estudiante,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _OpcionRol(
-                                  key: const Key('registro-rol-entrenador'),
-                                  etiqueta: 'Entrenador',
-                                  color: _navy,
-                                  seleccionado: _rol == RolesUsuario.entrenador,
-                                  onTap: () => setState(
-                                    () => _rol = RolesUsuario.entrenador,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
                           _RegistrationField(
                             label: 'Correo Electrónico Unimet',
                             controller: _emailController,
@@ -411,46 +382,6 @@ class _RegistrationField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Botón para elegir el tipo de cuenta (estudiante o entrenador).
-class _OpcionRol extends StatelessWidget {
-  const _OpcionRol({
-    super.key,
-    required this.etiqueta,
-    required this.color,
-    required this.seleccionado,
-    required this.onTap,
-  });
-
-  final String etiqueta;
-  final Color color;
-  final bool seleccionado;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: seleccionado ? color : color.withValues(alpha: 0.25),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Center(
-            child: Text(
-              etiqueta,
-              style: TextStyle(
-                color: seleccionado ? Colors.white : Colors.black87,
-                fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
