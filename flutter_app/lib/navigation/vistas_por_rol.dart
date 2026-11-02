@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../views/admin/admin_dashboard_view.dart';
+import '../views/admin/crear_deporte_view.dart';
+import '../views/admin/gestion_estudiantes_view.dart';
+import '../views/admin/registrar_entrenador_view.dart';
 import '../views/entrenador/entrenador_home_screen.dart';
 import '../views/estudiante/perfil_estudiante_view.dart';
 import '../views/student_view.dart';
@@ -12,6 +15,7 @@ import 'app_routes.dart';
 /// - Vista del entrenador: `lib/views/entrenador/entrenador_home_screen.dart`.
 /// - Vista del estudiante: `lib/views/student_view.dart`.
 /// - Perfil del estudiante: `lib/views/estudiante/perfil_estudiante_view.dart`.
+/// - Panel del administrador: `lib/views/admin/`.
 ///
 /// Si alguna de esas vistas cambia de nombre, solo hay que tocar este
 /// archivo.
@@ -46,5 +50,27 @@ Widget construirPerfilEstudiante(BuildContext context, SesionUsuario sesion) {
 }
 
 Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
-  return const AdminDashboardView();
+  final navigator = Navigator.of(context);
+  return AdminDashboardView(
+    nombreAdmin: sesion.nombre,
+    onCerrarSesion: () => AppRoutes.cerrarSesion(context),
+    onRegistrarEntrenador: () =>
+        navigator.pushNamed(AppRoutes.registrarEntrenador, arguments: sesion),
+    onCrearDeporte: () =>
+        navigator.pushNamed(AppRoutes.crearDeporte, arguments: sesion),
+    onGestionarEstudiantes: () =>
+        navigator.pushNamed(AppRoutes.gestionEstudiantes, arguments: sesion),
+  );
+}
+
+Widget construirGestionEstudiantes(BuildContext context, SesionUsuario sesion) {
+  return const GestionEstudiantesView();
+}
+
+Widget construirCrearDeporte(BuildContext context, SesionUsuario sesion) {
+  return const CrearDeporteView();
+}
+
+Widget construirRegistroEntrenador(BuildContext context, SesionUsuario sesion) {
+  return const RegistrarEntrenadorView();
 }

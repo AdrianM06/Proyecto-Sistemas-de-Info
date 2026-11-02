@@ -15,6 +15,7 @@ import 'vistas_por_rol.dart';
 /// - `/login` y `/registro` son públicas.
 /// - `/entrenador` y `/estudiante` exigen una sesión con ese rol; si no la
 ///   hay, se manda al usuario al inicio de sesión.
+/// - Todas las rutas `/admin/...` exigen una sesión con `rol: "admin"`.
 class AppRoutes {
   AppRoutes._();
 
@@ -30,10 +31,19 @@ class AppRoutes {
   static const String adminDashboard = '/admin/dashboard';
   static const String gestionEstudiantes = '/admin/estudiantes';
   static const String crearDeporte = '/admin/crear-deporte';
+  static const String registrarEntrenador = '/admin/entrenadores/nuevo';
 
   /// Ruta de inicio según el rol guardado en la base de datos.
-  static String rutaParaRol(String rol) =>
-      rol == RolesUsuario.entrenador ? entrenador : estudiante;
+  static String rutaParaRol(String rol) {
+    switch (rol) {
+      case RolesUsuario.admin:
+        return adminDashboard;
+      case RolesUsuario.entrenador:
+        return entrenador;
+      default:
+        return estudiante;
+    }
+  }
 
   /// Envía al usuario a su vista y borra el historial (no puede volver al
   /// login con el botón atrás).
@@ -72,14 +82,7 @@ class AppRoutes {
       case login:
         return _ruta(settings, (_) => const LoginScreen());
       case registro:
-        return _ruta(
-          settings,
-          (_) => RegistrationScreen(
-            rolInicial: argumentos is String
-                ? RolesUsuario.desdeTexto(argumentos)
-                : RolesUsuario.estudiante,
-          ),
-        );
+        return _ruta(settings, (_) => const RegistrationScreen());
       case recuperarContrasena:
         return _ruta(settings, (_) => const PasswordRecoveryScreen());
       case entrenador:
@@ -114,19 +117,35 @@ class AppRoutes {
       case perfil:
         return _ruta(settings, (_) => ProfileView());
       case adminDashboard:
-        return _ruta(
-          settings,
-          (_) => const RutaProtegida(
-            rolRequerido: 'admin',
-            constructor: construirVistaAdmin,
-          ),
-        );
+        return _rutaAdmin(settings, construirVistaAdmin);
+      case gestionEstudiantes:
+        return _rutaAdmin(settings, construirGestionEstudiantes);
+      case crearDeporte:
+        return _rutaAdmin(settings, construirCrearDeporte);
+      case registrarEntrenador:
+        return _rutaAdmin(settings, construirRegistroEntrenador);
       default:
         return _ruta(
           const RouteSettings(name: landing),
           (_) => const LandingView(),
         );
     }
+  }
+
+  /// Ruta del panel del administrador: solo entra una sesión con rol admin.
+  static MaterialPageRoute<dynamic> _rutaAdmin(
+    RouteSettings settings,
+    Widget Function(BuildContext context, SesionUsuario sesion) constructor,
+  ) {
+    final argumentos = settings.arguments;
+    return _ruta(
+      settings,
+      (_) => RutaProtegida(
+        rolRequerido: RolesUsuario.admin,
+        sesionInicial: argumentos is SesionUsuario ? argumentos : null,
+        constructor: constructor,
+      ),
+    );
   }
 
   static MaterialPageRoute<dynamic> _ruta(
