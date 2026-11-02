@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../views/admin/admin_dashboard_view.dart';
 import '../views/entrenador/entrenador_home_screen.dart';
 import '../views/estudiante/perfil_estudiante_view.dart';
 import '../views/student_view.dart';
