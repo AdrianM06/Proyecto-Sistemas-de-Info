@@ -470,9 +470,11 @@ class _DatoBloqueado extends StatelessWidget {
           '$etiqueta: ',
           style: const TextStyle(color: _grisTexto, fontSize: 12),
         ),
-        Text(
-          valor,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        Flexible(
+          child: Text(
+            valor,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

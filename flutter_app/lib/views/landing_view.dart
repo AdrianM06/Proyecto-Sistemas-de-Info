@@ -965,11 +965,13 @@ class _TarjetaModulo extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Text(
-                    modulo.rol == null ? 'Entrar' : 'Entrar con mi cuenta',
-                    style: const TextStyle(
-                      color: _naranja,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      modulo.rol == null ? 'Entrar' : 'Entrar con mi cuenta',
+                      style: const TextStyle(
+                        color: _naranja,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
