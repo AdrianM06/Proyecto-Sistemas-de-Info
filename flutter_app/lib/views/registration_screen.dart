@@ -3,13 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
 import '../utils/app_validators.dart';
+import 'widgets/boton_volver_inicio.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
 const _navy = Color(0xFF003B82);
 
-/// Registro público de estudiantes (ruta `/registro`). Guarda el usuario en
-/// Firebase Authentication y su perfil con `rol: "estudiante"` en `users`.
+/// Registro público de estudiantes (ruta `/registro`).
+///
+/// Pide Nombre, Apellido, Correo estudiantil (@correo.unimet.edu.ve),
+/// Cédula, Carnet (11 dígitos) y Contraseña (con confirmación). Todos son
+/// obligatorios y se validan antes de enviar nada a Firebase; luego
+/// `AuthService` los vuelve a revisar y las reglas de Firestore también.
 ///
 /// Los entrenadores ya no se registran aquí: los crea el administrador desde
 /// su panel.
@@ -127,19 +132,26 @@ class _RegistrationContent extends StatefulWidget {
 class _RegistrationContentState extends State<_RegistrationContent> {
   final _formKey = GlobalKey<FormState>();
 
+  final _nombreController = TextEditingController();
+  final _apellidoController = TextEditingController();
   final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
+  final _cedulaController = TextEditingController();
   final _carnetController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmacionController = TextEditingController();
 
   bool _isLoading = false;
+  bool _mostrarClave = false;
 
   @override
   void dispose() {
+    _nombreController.dispose();
+    _apellidoController.dispose();
     _emailController.dispose();
-    _usernameController.dispose();
+    _cedulaController.dispose();
     _carnetController.dispose();
     _passwordController.dispose();
+    _confirmacionController.dispose();
     super.dispose();
   }
 
@@ -150,11 +162,12 @@ class _RegistrationContentState extends State<_RegistrationContent> {
 
     try {
       final sesion = await AuthService.instance.registerUser(
+        nombre: _nombreController.text,
+        apellido: _apellidoController.text,
         email: _emailController.text,
-        username: _usernameController.text,
+        cedula: _cedulaController.text,
         carnet: _carnetController.text,
         password: _passwordController.text,
-        rol: RolesUsuario.estudiante,
       );
 
       if (!mounted) return;
@@ -174,6 +187,12 @@ class _RegistrationContentState extends State<_RegistrationContent> {
         errorMessage = 'El correo electrónico ya está registrado.';
       } else if (e.code == 'carnet-already-in-use') {
         errorMessage = 'Ese carnet ya está registrado.';
+      } else if (e.code == 'cedula-already-in-use') {
+        errorMessage = 'Esa cédula ya está registrada.';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'El correo no tiene un formato válido.';
+      } else if (e.code == 'network-request-failed') {
+        errorMessage = 'Sin conexión. Revisa tu internet e intenta de nuevo.';
       } else if (e.code == 'weak-password') {
         errorMessage = 'La contraseña debe tener mayor seguridad.';
       } else if (e.message != null) {
@@ -187,7 +206,10 @@ class _RegistrationContentState extends State<_RegistrationContent> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: Colors.red, content: Text('Error: $e')),
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('No se pudo crear la cuenta. Intenta de nuevo.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -209,6 +231,11 @@ class _RegistrationContentState extends State<_RegistrationContent> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: BotonVolverInicio(),
+                ),
+                const SizedBox(height: 8),
                 const Text(
                   'REGISTRACIÓN',
                   textAlign: TextAlign.center,
@@ -244,31 +271,90 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _RegistrationField(
+                                  fieldKey: const Key('registro-nombre'),
+                                  label: 'Nombre',
+                                  controller: _nombreController,
+                                  capitalization: TextCapitalization.words,
+                                  validator: AppValidators.validateNombre,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _RegistrationField(
+                                  fieldKey: const Key('registro-apellido'),
+                                  label: 'Apellido',
+                                  controller: _apellidoController,
+                                  capitalization: TextCapitalization.words,
+                                  validator: AppValidators.validateApellido,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           _RegistrationField(
+                            fieldKey: const Key('registro-correo'),
                             label: 'Correo Electrónico Unimet',
+                            hint: 'nombre@correo.unimet.edu.ve',
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            validator: AppValidators.validateEmail,
+                            validator: AppValidators.validateEmailEstudiante,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
-                            label: 'Nombre de Usuario',
-                            controller: _usernameController,
-                            validator: AppValidators.validateUsername,
+                            fieldKey: const Key('registro-cedula'),
+                            label: 'Cédula de Identidad',
+                            hint: 'V-12345678',
+                            controller: _cedulaController,
+                            validator: AppValidators.validateCedula,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
+                            fieldKey: const Key('registro-carnet'),
                             label: 'Carnet Universitario',
+                            hint: '11 dígitos, ej. 20221110045',
                             controller: _carnetController,
                             keyboardType: TextInputType.number,
+                            maxLength: 11,
                             validator: AppValidators.validateCarnet,
                           ),
                           const SizedBox(height: 16),
                           _RegistrationField(
+                            fieldKey: const Key('registro-clave'),
                             label: 'Contraseña',
+                            hint: 'Mínimo 8 caracteres, una mayúscula y un número',
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: !_mostrarClave,
                             validator: AppValidators.validatePassword,
+                            suffix: IconButton(
+                              tooltip: _mostrarClave
+                                  ? 'Ocultar contraseña'
+                                  : 'Mostrar contraseña',
+                              icon: Icon(
+                                _mostrarClave
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _mostrarClave = !_mostrarClave,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _RegistrationField(
+                            fieldKey: const Key('registro-confirmar-clave'),
+                            label: 'Confirmar contraseña',
+                            controller: _confirmacionController,
+                            obscureText: !_mostrarClave,
+                            validator: (valor) =>
+                                AppValidators.validateConfirmacion(
+                                  valor,
+                                  _passwordController.text,
+                                ),
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
@@ -349,17 +435,27 @@ class _RegistrationContentState extends State<_RegistrationContent> {
 class _RegistrationField extends StatelessWidget {
   const _RegistrationField({
     required this.label,
+    this.fieldKey,
+    this.hint,
     this.controller,
     this.keyboardType,
     this.obscureText = false,
     this.validator,
+    this.capitalization = TextCapitalization.none,
+    this.maxLength,
+    this.suffix,
   });
 
   final String label;
+  final Key? fieldKey;
+  final String? hint;
   final TextEditingController? controller;
   final TextInputType? keyboardType;
   final bool obscureText;
   final String? Function(String?)? validator;
+  final TextCapitalization capitalization;
+  final int? maxLength;
+  final Widget? suffix;
 
   @override
   Widget build(BuildContext context) {
@@ -369,16 +465,26 @@ class _RegistrationField extends StatelessWidget {
         Text(label, style: const TextStyle(fontSize: 14, color: Colors.black)),
         const SizedBox(height: 4),
         TextFormField(
+          key: fieldKey,
           controller: controller,
           keyboardType: keyboardType,
           obscureText: obscureText,
           validator: validator,
+          textCapitalization: capitalization,
+          maxLength: maxLength,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             isDense: true,
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 12, color: Colors.black38),
             errorMaxLines: 2,
+            counterText: '',
+            suffixIcon: suffix,
           ),
         ),
       ],

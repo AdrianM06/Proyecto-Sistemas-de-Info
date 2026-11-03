@@ -9,7 +9,7 @@ void main() {
   var sesionCerrada = false;
 
   Future<void> abrir(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.physicalSize = const Size(1400, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -40,13 +40,33 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('muestra el menú lateral y las tres tarjetas', (tester) async {
+  testWidgets('el menú hamburguesa abre el menú lateral', (tester) async {
     await abrir(tester);
+
+    // El menú está cerrado: los botones no quedan expuestos en la página.
+    expect(find.byKey(const Key('menu-Inicio')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('boton-menu')));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('menu-Inicio')), findsOneWidget);
     expect(find.byKey(const Key('menu-Catálogo')), findsOneWidget);
     expect(find.byKey(const Key('menu-Pagos')), findsOneWidget);
+    expect(find.byKey(const Key('menu-Mi perfil')), findsOneWidget);
+    expect(find.byKey(const Key('menu-Página principal')), findsOneWidget);
+    expect(find.byKey(const Key('menu-Cerrar sesión')), findsOneWidget);
+  });
+
+  testWidgets('muestra las tres tarjetas del perfil', (tester) async {
+    await abrir(tester);
+
     expect(find.text('Perfil'), findsOneWidget);
+    expect(find.byKey(const Key('perfil-nombre')), findsOneWidget);
+    expect(find.text('Andrea Pérez'), findsOneWidget);
+    expect(find.text('20221110342'), findsOneWidget);
+    expect(find.text('V-27123456'), findsOneWidget);
+    expect(find.byKey(const Key('boton-cambiar-foto')), findsOneWidget);
+    expect(find.byKey(const Key('boton-editar-datos')), findsOneWidget);
     expect(find.text('Cambia la contraseña de usuario'), findsOneWidget);
     expect(find.text('Saldo en cuenta'), findsOneWidget);
     expect(find.text('Saldo adeudado'), findsOneWidget);
@@ -117,5 +137,61 @@ void main() {
     await tester.pump();
 
     expect(sesionCerrada, isTrue);
+  });
+
+  testWidgets('editar datos: nombre y apellido editables, carnet y cédula bloqueados', (
+    tester,
+  ) async {
+    await abrir(tester);
+
+    await tester.tap(find.byKey(const Key('boton-editar-datos')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialogo-editar-datos')), findsOneWidget);
+
+    final carnet = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('editar-carnet')),
+        matching: find.byType(TextField),
+      ),
+    );
+    final cedula = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('editar-cedula')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(carnet.readOnly, isTrue);
+    expect(carnet.enabled, isFalse);
+    expect(cedula.readOnly, isTrue);
+    expect(cedula.enabled, isFalse);
+
+    await tester.enterText(find.byKey(const Key('editar-nombre')), 'María');
+    await tester.enterText(find.byKey(const Key('editar-apellido')), 'Gómez');
+    await tester.tap(find.byKey(const Key('guardar-datos')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialogo-editar-datos')), findsNothing);
+    expect(find.text('María Gómez'), findsOneWidget);
+    expect(datos.usuario.nombre, 'María');
+    expect(datos.usuario.carnet, '20221110342');
+    expect(datos.usuario.cedula, 'V-27123456');
+
+    // Deja que el aviso termine antes de cerrar la prueba.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('editar datos no guarda un nombre inválido', (tester) async {
+    await abrir(tester);
+
+    await tester.tap(find.byKey(const Key('boton-editar-datos')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('editar-nombre')), 'A1');
+    await tester.tap(find.byKey(const Key('guardar-datos')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialogo-editar-datos')), findsOneWidget);
+    expect(find.text('El nombre solo puede tener letras'), findsOneWidget);
+    expect(datos.usuario.nombre, 'Andrea');
   });
 }

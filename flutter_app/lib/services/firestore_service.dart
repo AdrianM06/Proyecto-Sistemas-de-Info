@@ -33,4 +33,13 @@ class FirestoreService {
       db.collection('enrollments');
   CollectionReference<Map<String, dynamic>> get attendances =>
       db.collection('attendances');
+
+  /// Índice de carnets: `carnets/{carnet}` -> `{uid, email}`. Garantiza que
+  /// un carnet no se registre dos veces y permite iniciar sesión con él.
+  CollectionReference<Map<String, dynamic>> get carnets =>
+      db.collection('carnets');
+
+  /// Índice de cédulas: `cedulas/{V-12345678}` -> `{uid}`.
+  CollectionReference<Map<String, dynamic>> get cedulas =>
+      db.collection('cedulas');
 }

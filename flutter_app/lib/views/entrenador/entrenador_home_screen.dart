@@ -32,6 +32,7 @@ class EntrenadorHomeScreen extends StatefulWidget {
     required this.controller,
     required this.nombreEntrenador,
     this.onCerrarSesion,
+    this.onIrALanding,
   });
 
   /// Crea la pantalla conectada a Cloud Firestore.
@@ -40,6 +41,7 @@ class EntrenadorHomeScreen extends StatefulWidget {
     required String entrenadorId,
     required String nombreEntrenador,
     VoidCallback? onCerrarSesion,
+    VoidCallback? onIrALanding,
   }) {
     return EntrenadorHomeScreen(
       key: key,
@@ -49,6 +51,7 @@ class EntrenadorHomeScreen extends StatefulWidget {
       ),
       nombreEntrenador: nombreEntrenador,
       onCerrarSesion: onCerrarSesion,
+      onIrALanding: onIrALanding,
     );
   }
 
@@ -59,6 +62,9 @@ class EntrenadorHomeScreen extends StatefulWidget {
   /// Acción del botón "Cerrar sesión" de la barra superior. Si es `null`,
   /// el botón no aparece (por ejemplo, en la demo).
   final VoidCallback? onCerrarSesion;
+
+  /// Botón "Página principal": vuelve a la Landing sin cerrar la sesión.
+  final VoidCallback? onIrALanding;
 
   @override
   State<EntrenadorHomeScreen> createState() => _EntrenadorHomeScreenState();
@@ -117,6 +123,13 @@ class _EntrenadorHomeScreenState extends State<EntrenadorHomeScreen> {
                 onPressed: _controller.cargando ? null : _controller.recargar,
                 icon: const Icon(Icons.refresh),
               ),
+              if (widget.onIrALanding != null)
+                IconButton(
+                  key: const Key('boton-ir-landing'),
+                  tooltip: 'Página principal',
+                  onPressed: widget.onIrALanding,
+                  icon: const Icon(Icons.home_outlined),
+                ),
               if (widget.onCerrarSesion != null)
                 IconButton(
                   key: const Key('boton-cerrar-sesion'),

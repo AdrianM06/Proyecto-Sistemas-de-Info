@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../controllers/perfil_estudiante_controller.dart';
+import '../../services/foto_perfil_service.dart';
 import '../../services/perfil_estudiante_service.dart';
 import '../../utils/formato_moneda.dart';
+import '../widgets/avatar_usuario.dart';
+import 'editar_datos_estudiante_dialog.dart';
+import 'estudiante_scaffold.dart';
 
 // Colores del diseño "Perfil Estudiante".
-const _fondo = Color(0xFFF0F0F5);
 const _azul = Color(0xFF003087);
 const _naranja = Color(0xFFFF8C2A);
 const _grisCaja = Color(0xFFF2F2F7);
@@ -13,10 +17,10 @@ const _grisTexto = Color(0xFF6B6B78);
 
 /// Página de perfil del estudiante (ruta `/estudiante/perfil`).
 ///
-/// Sigue el diseño "Perfil Estudiante": barra superior con el menú, el logo
-/// de UNIMET Sports y la foto de perfil; menú lateral con los botones azules
-/// (Inicio, Catálogo, Pagos) y tres tarjetas blancas: "Perfil" (Cambiar
-/// clave), "Saldo en cuenta" (Bs. 00,00) y "Retirar disciplina".
+/// Usa la misma barra y el mismo menú hamburguesa que el Inicio
+/// ([EstudianteScaffold]) y muestra tres tarjetas blancas: "Perfil" (foto,
+/// datos, Editar datos y Cambiar clave), "Saldo en cuenta" (Bs. 00,00) y
+/// "Retirar disciplina".
 class PerfilEstudianteView extends StatefulWidget {
   const PerfilEstudianteView({
     super.key,
@@ -24,6 +28,7 @@ class PerfilEstudianteView extends StatefulWidget {
     this.onCerrarSesion,
     this.onIrAInicio,
     this.onIrACatalogo,
+    this.onIrALanding,
   });
 
   /// Página conectada a Firebase.
@@ -32,6 +37,7 @@ class PerfilEstudianteView extends StatefulWidget {
     VoidCallback? onCerrarSesion,
     VoidCallback? onIrAInicio,
     VoidCallback? onIrACatalogo,
+    VoidCallback? onIrALanding,
   }) {
     return PerfilEstudianteView(
       key: key,
@@ -39,6 +45,7 @@ class PerfilEstudianteView extends StatefulWidget {
       onCerrarSesion: onCerrarSesion,
       onIrAInicio: onIrAInicio,
       onIrACatalogo: onIrACatalogo,
+      onIrALanding: onIrALanding,
     );
   }
 
@@ -47,6 +54,7 @@ class PerfilEstudianteView extends StatefulWidget {
   final VoidCallback? onCerrarSesion;
   final VoidCallback? onIrAInicio;
   final VoidCallback? onIrACatalogo;
+  final VoidCallback? onIrALanding;
 
   @override
   State<PerfilEstudianteView> createState() => _PerfilEstudianteViewState();
@@ -152,133 +160,74 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     );
   }
 
+  Future<void> _abrirEdicion() async {
+    final usuario = _controller.perfil?.usuario;
+    if (usuario == null) return;
+    final guardado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => EditarDatosEstudianteDialog(
+        nombreActual: usuario.nombre,
+        apellidoActual: usuario.apellido,
+        cedulaActual: usuario.cedula ?? '',
+        carnetActual: usuario.carnet ?? '',
+        onGuardar: (nombre, apellido) =>
+            _controller.actualizarDatos(nombre: nombre, apellido: apellido),
+      ),
+    );
+    if (guardado == true && mounted) {
+      _avisar('Tus datos se guardaron.', color: Colors.green[700]);
+    }
+  }
+
+  Future<void> _cambiarFoto() async {
+    XFile? archivo;
+    try {
+      archivo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 600,
+        maxHeight: 600,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      _avisar('No se pudo abrir el selector de imágenes.', color: Colors.red[700]);
+      return;
+    }
+    if (archivo == null || !mounted) return;
+    final bytes = await archivo.readAsBytes();
+    final tipo = archivo.mimeType ?? FotoPerfilService.tipoDesdeNombre(archivo.name);
+    final error = await _controller.cambiarFoto(bytes, tipo: tipo);
+    if (!mounted) return;
+    _avisar(
+      error ?? '¡Tu foto de perfil se actualizó!',
+      color: error == null ? Colors.green[700] : Colors.red[700],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _fondo,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _barraSuperior(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _menuLateral(),
-                  Expanded(
-                    child: ListenableBuilder(
-                      listenable: _controller,
-                      builder: (context, _) => _contenido(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ----------------------------------------------------------- estructura
-
-  Widget _barraSuperior() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            color: Colors.white,
-            child: const Icon(Icons.menu, color: Colors.black54, size: 28),
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final usuario = _controller.perfil?.usuario;
+        return EstudianteScaffold(
+          seccion: SeccionEstudiante.perfil,
+          avatar: AvatarUsuario(
+            fotoUrl: usuario?.fotoUrl,
+            iniciales: usuario?.iniciales ?? '',
           ),
-          const SizedBox(width: 18),
-          Image.asset(
-            'assets/images/unimet_sports_logo.png',
-            height: 46,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Text(
-              'UNIMET SPORTS',
-              style: TextStyle(color: _naranja, fontWeight: FontWeight.bold),
-            ),
+          onInicio: widget.onIrAInicio ?? () => Navigator.of(context).maybePop(),
+          onCatalogo: widget.onIrACatalogo ??
+              () => _avisar('El catálogo estará disponible pronto.'),
+          onPagos: () => _avisar(
+            'Tu saldo está en "Saldo en cuenta". Los pagos en línea '
+            'estarán disponibles pronto.',
           ),
-          const Spacer(),
-          Tooltip(
-            message: 'Mi perfil',
-            child: Container(
-              key: const Key('avatar-perfil'),
-              width: 38,
-              height: 38,
-              color: const Color(0xFFE0E0E0),
-              child: const Icon(Icons.person, color: Colors.grey, size: 32),
-            ),
-          ),
-          if (widget.onCerrarSesion != null) ...[
-            const SizedBox(width: 6),
-            IconButton(
-              key: const Key('boton-cerrar-sesion'),
-              tooltip: 'Cerrar sesión',
-              onPressed: widget.onCerrarSesion,
-              icon: const Icon(Icons.logout, color: Colors.black),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _menuLateral() {
-    return SizedBox(
-      width: 150,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 18, right: 14),
-        child: Column(
-          children: [
-            _botonLateral(
-              'Inicio',
-              widget.onIrAInicio ??
-                  () {
-                    Navigator.of(context).maybePop();
-                  },
-            ),
-            _botonLateral(
-              'Catálogo',
-              widget.onIrACatalogo ??
-                  () => _avisar('El catálogo estará disponible pronto.'),
-            ),
-            _botonLateral(
-              'Pagos',
-              () => _avisar('Pagos estará disponible pronto.'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _botonLateral(String titulo, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SizedBox(
-        width: double.infinity,
-        height: 30,
-        child: ElevatedButton(
-          key: Key('menu-$titulo'),
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _azul,
-            elevation: 0,
-            padding: EdgeInsets.zero,
-            shape: const StadiumBorder(),
-          ),
-          child: Text(
-            titulo,
-            style: const TextStyle(color: Colors.white, fontSize: 17),
-          ),
-        ),
-      ),
+          onPaginaPrincipal: widget.onIrALanding,
+          onCerrarSesion: widget.onCerrarSesion,
+          body: _contenido(),
+        );
+      },
     );
   }
 
@@ -310,7 +259,7 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 0, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       child: Align(
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
@@ -318,7 +267,7 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tarjetaPerfil(),
+              _tarjetaPerfil(perfil),
               const SizedBox(height: 32),
               _tarjetaSaldo(perfil),
               const SizedBox(height: 32),
@@ -332,13 +281,90 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
 
   // ------------------------------------------------------------- tarjetas
 
-  Widget _tarjetaPerfil() {
+  Widget _tarjetaPerfil(PerfilEstudiante perfil) {
     final exito = _controller.mensajeExito;
+    final usuario = perfil.usuario;
     return _Tarjeta(
       key: const Key('tarjeta-perfil'),
       titulo: 'Perfil',
       children: [
-        const SizedBox(height: 22),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Stack(
+              children: [
+                AvatarUsuario(
+                  key: const Key('foto-perfil'),
+                  fotoUrl: usuario.fotoUrl,
+                  iniciales: usuario.iniciales,
+                  radio: 40,
+                ),
+                if (_controller.subiendoFoto)
+                  const Positioned.fill(
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    usuario.nombreCompleto,
+                    key: const Key('perfil-nombre'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    usuario.email,
+                    style: const TextStyle(color: _grisTexto, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    key: const Key('boton-cambiar-foto'),
+                    onPressed: _controller.subiendoFoto ? null : _cambiarFoto,
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('Cambiar foto'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _azul,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 24,
+          runSpacing: 8,
+          children: [
+            _DatoBloqueado(
+              key: const Key('perfil-carnet'),
+              etiqueta: 'Carnet',
+              valor: usuario.carnet ?? 'Sin registrar',
+            ),
+            _DatoBloqueado(
+              key: const Key('perfil-cedula'),
+              etiqueta: 'Cédula',
+              valor: usuario.cedula ?? 'Sin registrar',
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _AccionConDescripcion(
+          botonKey: const Key('boton-editar-datos'),
+          textoBoton: 'Editar datos',
+          descripcion: 'Cambia tu nombre y apellido',
+          cargando: _controller.guardandoDatos,
+          onPressed: _abrirEdicion,
+        ),
+        const SizedBox(height: 14),
         _AccionConDescripcion(
           botonKey: const Key('boton-cambiar-clave'),
           textoBoton: 'Cambiar clave',
@@ -420,6 +446,33 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
           descripcion: 'Cancela la inscripción a una disciplina deportiva',
           cargando: _controller.retirando != null,
           onPressed: _abrirRetiro,
+        ),
+      ],
+    );
+  }
+}
+
+/// Dato que no se puede editar (carnet o cédula), con un candado.
+class _DatoBloqueado extends StatelessWidget {
+  const _DatoBloqueado({super.key, required this.etiqueta, required this.valor});
+
+  final String etiqueta;
+  final String valor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.lock_outline, size: 14, color: _grisTexto),
+        const SizedBox(width: 4),
+        Text(
+          '$etiqueta: ',
+          style: const TextStyle(color: _grisTexto, fontSize: 12),
+        ),
+        Text(
+          valor,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ],
     );

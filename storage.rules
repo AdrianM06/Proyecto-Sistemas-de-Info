@@ -1,22 +1,30 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+// Reglas de Firebase Storage de Samán Deportivo.
+//
+// Fotos de perfil en usuarios/{uid}/perfil_<fecha>.<jpg|png|webp>:
+// - Solo el dueño puede subir, cambiar o borrar su foto.
+// - Solo imágenes JPG, PNG o WEBP de hasta 2 MB.
+// - Cualquier usuario con sesión puede verlas (la app muestra la foto con su
+//   URL de descarga).
+// Todo lo demás queda cerrado.
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // This rule allows anyone with your Storage bucket reference to view, edit,
-    // and delete all data in your Storage bucket. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Storage bucket will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Storage bucket will be denied until you Update
-    // your rules
+    match /usuarios/{uid}/{archivo} {
+      allow read: if request.auth != null;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && archivo.matches('perfil_[0-9]+[.](jpg|png|webp)')
+        && request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{allPaths=**} {
-      allow read, write: if request.time < timestamp.date(2026, 11, 23);
+      allow read, write: if false;
     }
   }
 }

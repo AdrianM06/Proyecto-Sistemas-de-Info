@@ -1,19 +1,187 @@
 rules_version = '2';
 
+// Reglas de Cloud Firestore de Samán Deportivo.
+//
+// - Nadie entra sin iniciar sesión, salvo al catálogo de disciplinas
+//   (`sports`) y a los índices `carnets` / `cedulas` (solo lectura de un
+//   documento, para el login con carnet y para evitar registros repetidos).
+// - El rol sale del documento `users/{uid}` y nadie puede cambiarse el rol
+//   a sí mismo. El primer admin se crea a mano en la consola.
+// - Los datos del registro se validan aquí también (mismas reglas que en
+//   lib/utils/app_validators.dart), así no entran datos incompletos o
+//   corruptos aunque alguien se salte la app.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    // ------------------------------------------------------------ sesión y rol
+
+    function conSesion() {
+      return request.auth != null;
+    }
+
+    function rutaUsuario(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function miRol() {
+      return get(rutaUsuario(request.auth.uid)).data.get('rol', 'estudiante');
+    }
+
+    function tienePerfil() {
+      return conSesion() && exists(rutaUsuario(request.auth.uid));
+    }
+
+    function esAdmin() {
+      return tienePerfil() && miRol() in ['admin', 'administrador'];
+    }
+
+    function esEntrenador() {
+      return tienePerfil() && miRol() == 'entrenador';
+    }
+
+    function esPersonal() {
+      return esAdmin() || esEntrenador();
+    }
+
+    function esElMismo(uid) {
+      return conSesion() && request.auth.uid == uid;
+    }
+
+    // ------------------------------------------------------------- validaciones
+
+    function nombreValido(v) {
+      return v is string
+        && v.size() >= 2
+        && v.size() <= 40
+        && !v.matches('.*[0-9<>{}@#$%^&*=+_|~!?;:/\\\\].*');
+    }
+
+    function correoEstudianteValido(v) {
+      return v is string
+        && v.size() <= 100
+        && v.matches('[a-z0-9._%+-]+@correo[.]unimet[.]edu[.]ve');
+    }
+
+    function carnetValido(v) {
+      return v is string && v.matches('20[0-9]{9}');
+    }
+
+    function cedulaValida(v) {
+      return v is string && v.matches('[VE]-[0-9]{6,9}');
+    }
+
+    function fotoValida(v) {
+      return v is string
+        && v.size() <= 2048
+        && v.matches('https://firebasestorage[.]googleapis[.]com/.*');
+    }
+
+    // Registro público: un estudiante crea su propio perfil, con todos los
+    // campos obligatorios, y en el mismo lote los índices de carnet y cédula.
+    function registroEstudianteValido(uid) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['uid', 'email', 'nombre', 'apellido', 'cedula',
+                              'carnet', 'rol', 'estadoActivo', 'fechaRegistro'])
+        && d.keys().hasOnly(['uid', 'email', 'nombre', 'apellido', 'cedula',
+                             'carnet', 'rol', 'estadoActivo', 'fechaRegistro'])
+        && d.uid == uid
+        && d.rol == 'estudiante'
+        && d.estadoActivo == true
+        && d.fechaRegistro == request.time
+        && nombreValido(d.nombre)
+        && nombreValido(d.apellido)
+        && correoEstudianteValido(d.email)
+        && d.email == request.auth.token.email
+        && carnetValido(d.carnet)
+        && cedulaValida(d.cedula)
+        && getAfter(/databases/$(database)/documents/carnets/$(d.carnet)).data.uid == uid
+        && getAfter(/databases/$(database)/documents/cedulas/$(d.cedula)).data.uid == uid;
+    }
+
+    // Lo que un usuario puede cambiar de su propio perfil: nombre, apellido
+    // y foto. El carnet, la cédula, el correo y el rol quedan bloqueados.
+    function cambioPropioValido() {
+      let d = request.resource.data;
+      let cambios = d.diff(resource.data).affectedKeys();
+      return cambios.hasOnly(['nombre', 'apellido', 'fotoUrl', 'fotoActualizada'])
+        && (!('nombre' in cambios) || nombreValido(d.nombre))
+        && (!('apellido' in cambios) || nombreValido(d.apellido))
+        && (!('fotoUrl' in cambios) || fotoValida(d.fotoUrl))
+        && (!('fotoActualizada' in cambios) || d.fotoActualizada == request.time);
+    }
+
+    // ------------------------------------------------------------------ usuarios
+
+    match /users/{uid} {
+      allow get: if esElMismo(uid) || esPersonal();
+      allow list: if esPersonal();
+      allow create: if esAdmin() || (esElMismo(uid) && registroEstudianteValido(uid));
+      allow update: if esAdmin() || (esElMismo(uid) && cambioPropioValido());
+      allow delete: if esAdmin();
+    }
+
+    // Índice de carnets: carnets/{carnet} -> {uid, email}. `create` falla si
+    // el carnet ya existe (sería un `update`), así no hay carnets repetidos.
+    match /carnets/{carnet} {
+      allow get: if true;
+      allow list: if esAdmin();
+      allow create: if conSesion()
+        && carnetValido(carnet)
+        && request.resource.data.keys().hasOnly(['uid', 'email'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && getAfter(rutaUsuario(request.auth.uid)).data.carnet == carnet;
+      allow update: if false;
+      allow delete: if esAdmin();
+    }
+
+    // Índice de cédulas: cedulas/{V-12345678} -> {uid}.
+    match /cedulas/{cedula} {
+      allow get: if true;
+      allow list: if esAdmin();
+      allow create: if conSesion()
+        && cedulaValida(cedula)
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(rutaUsuario(request.auth.uid)).data.cedula == cedula;
+      allow update: if false;
+      allow delete: if esAdmin();
+    }
+
+    // ---------------------------------------------------------------- deportes
+
+    // El catálogo es público; solo el admin crea o cambia disciplinas.
+    match /sports/{deporteId} {
+      allow read: if true;
+      allow write: if esAdmin();
+    }
+
+    // ------------------------------------------------------------ inscripciones
+
+    match /enrollments/{inscripcionId} {
+      allow read: if conSesion();
+      allow create: if esAdmin()
+        || (conSesion() && request.resource.data.estudianteId == request.auth.uid);
+      // El estudiante solo puede retirarse de su propia inscripción.
+      allow update: if esAdmin()
+        || (conSesion()
+            && resource.data.estudianteId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['estado', 'fechaRetiro'])
+            && request.resource.data.estado == 'retirada');
+      allow delete: if esAdmin();
+    }
+
+    // -------------------------------------------------------------- asistencias
+
+    match /attendances/{asistenciaId} {
+      allow read: if conSesion();
+      allow write: if esPersonal();
+    }
+
+    // Todo lo demás queda cerrado.
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 11, 23);
+      allow read, write: if false;
     }
   }
 }

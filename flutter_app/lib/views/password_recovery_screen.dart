@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/utils/app_validators.dart';
 
+import 'widgets/boton_volver_inicio.dart';
+
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
 const _navy = Color(0xFF003B82);
@@ -115,6 +117,11 @@ class _RecoveryContentState extends State<_RecoveryContent> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: BotonVolverInicio(),
+          ),
+          const SizedBox(height: 8),
           const Padding(
             padding: EdgeInsets.only(left: 8, bottom: 8),
             child: Text(

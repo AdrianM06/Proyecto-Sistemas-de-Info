@@ -58,6 +58,16 @@ class AppRoutes {
     );
   }
 
+  /// Vuelve a la Landing Page (`/`) desde cualquier pantalla. Borra el
+  /// historial, así funciona igual si se entró directo por la URL o si se
+  /// recargó la página. Si hay sesión abierta, se mantiene.
+  static Future<void> irALanding(BuildContext context) {
+    return Navigator.of(context).pushNamedAndRemoveUntil(
+      landing,
+      (route) => false,
+    );
+  }
+
   /// Cierra la sesión y lleva de inmediato al inicio de sesión. Lo usan
   /// la vista del entrenador y la del estudiante.
   static Future<void> cerrarSesion(BuildContext context) async {
@@ -178,15 +188,15 @@ class RutaProtegida extends StatefulWidget {
 }
 
 class _RutaProtegidaState extends State<RutaProtegida> {
-  late final Future<SesionUsuario?> _sesion;
+  /// Solo se consulta a Firebase cuando no llegó la sesión por argumentos.
+  Future<SesionUsuario?>? _sesion;
 
   @override
   void initState() {
     super.initState();
-    final inicial = widget.sesionInicial;
-    _sesion = inicial != null
-        ? Future<SesionUsuario?>.value(inicial)
-        : AuthService.instance.sesionActual();
+    if (widget.sesionInicial == null) {
+      _sesion = AuthService.instance.sesionActual();
+    }
   }
 
   void _redirigir(String ruta, {SesionUsuario? sesion}) {
@@ -200,8 +210,25 @@ class _RutaProtegidaState extends State<RutaProtegida> {
     });
   }
 
+  Widget _vistaPara(SesionUsuario? sesion) {
+    if (sesion == null) {
+      _redirigir(AppRoutes.login);
+      return const Scaffold(body: SizedBox.shrink());
+    }
+    if (sesion.rol != widget.rolRequerido) {
+      _redirigir(AppRoutes.rutaParaRol(sesion.rol), sesion: sesion);
+      return const Scaffold(body: SizedBox.shrink());
+    }
+    return widget.constructor(context, sesion);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Con la sesión ya conocida (navegación dentro de la app) la vista se
+    // dibuja en el primer cuadro: sin pantalla de carga ni saltos.
+    final inicial = widget.sesionInicial;
+    if (inicial != null) return _vistaPara(inicial);
+
     return FutureBuilder<SesionUsuario?>(
       future: _sesion,
       builder: (context, snapshot) {
@@ -210,16 +237,7 @@ class _RutaProtegidaState extends State<RutaProtegida> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        final sesion = snapshot.data;
-        if (snapshot.hasError || sesion == null) {
-          _redirigir(AppRoutes.login);
-          return const Scaffold(body: SizedBox.shrink());
-        }
-        if (sesion.rol != widget.rolRequerido) {
-          _redirigir(AppRoutes.rutaParaRol(sesion.rol), sesion: sesion);
-          return const Scaffold(body: SizedBox.shrink());
-        }
-        return widget.constructor(context, sesion);
+        return _vistaPara(snapshot.hasError ? null : snapshot.data);
       },
     );
   }

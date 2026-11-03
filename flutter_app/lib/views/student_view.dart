@@ -1,102 +1,109 @@
 import 'package:flutter/material.dart';
 
-class StudentView extends StatelessWidget {
-  const StudentView({super.key, this.onCerrarSesion, this.onAbrirPerfil});
+import 'estudiante/estudiante_scaffold.dart';
 
-  /// Botón "Cerrar sesión" de la barra superior (igual que en la vista del
-  /// entrenador). Si es `null`, el botón no aparece.
+/// Inicio del estudiante (ruta `/estudiante`).
+///
+/// Usa [EstudianteScaffold]: el menú hamburguesa abre el menú lateral con
+/// Inicio, Catálogo, Pagos, Mi perfil, Página principal y Cerrar sesión.
+class StudentView extends StatelessWidget {
+  const StudentView({
+    super.key,
+    this.onCerrarSesion,
+    this.onAbrirPerfil,
+    this.onIrACatalogo,
+    this.onIrALanding,
+    this.avatar,
+  });
+
+  /// Botón "Cerrar sesión" (barra superior y menú). Si es `null`, no aparece.
   final VoidCallback? onCerrarSesion;
 
-  /// Se llama al tocar la foto de perfil de la esquina superior derecha.
+  /// Foto de perfil de la barra superior y "Mi perfil" del menú.
   final VoidCallback? onAbrirPerfil;
+
+  /// "Catálogo" del menú: abre el buscador de deportes.
+  final VoidCallback? onIrACatalogo;
+
+  /// "Página principal" del menú: vuelve a la Landing Page.
+  final VoidCallback? onIrALanding;
+
+  /// Foto de perfil que se muestra arriba a la derecha.
+  final Widget? avatar;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: const Icon(Icons.menu, color: Colors.black),
-        title: const Text('UNIMET SPORTS', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            key: const Key('avatar-perfil'),
-            tooltip: 'Mi perfil',
-            onPressed: onAbrirPerfil,
-            icon: const Icon(Icons.person, color: Colors.grey, size: 30),
-          ),
-          if (onCerrarSesion != null)
-            IconButton(
-              key: const Key('boton-cerrar-sesion'),
-              tooltip: 'Cerrar sesión',
-              onPressed: onCerrarSesion,
-              icon: const Icon(Icons.logout, color: Colors.black),
-            ),
-          const SizedBox(width: 12),
-        ],
-      ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 150,
-            padding: const EdgeInsets.only(top: 20),
+    return EstudianteScaffold(
+      seccion: SeccionEstudiante.inicio,
+      avatar: avatar,
+      onCatalogo: onIrACatalogo,
+      // El saldo y los pagos se consultan en el perfil.
+      onPagos: onAbrirPerfil,
+      onPerfil: onAbrirPerfil,
+      onPaginaPrincipal: onIrALanding,
+      onCerrarSesion: onCerrarSesion,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSidebarButton('Inicio'),
-                _buildSidebarButton('Catálogo'),
-                _buildSidebarButton('Pagos'),
+                const Text(
+                  'Fecha de entrenamiento próximo',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Card(
+                  color: Colors.white,
+                  child: Container(
+                    height: 250,
+                    alignment: Alignment.center,
+                    child: const Text('Calendario interactivo: Octubre 2026'),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                const Text(
+                  'Disciplinas',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Card(
+                  color: Colors.white,
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.check_circle,
+                      color: Colors.blue[900],
+                      size: 40,
+                    ),
+                    title: const Text(
+                      'Estás inscrito en',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    subtitle: Text(
+                      'Fútbol campo',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (onIrACatalogo != null)
+                  OutlinedButton.icon(
+                    key: const Key('inicio-ver-catalogo'),
+                    onPressed: onIrACatalogo,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Explorar el catálogo de disciplinas'),
+                  ),
               ],
             ),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Fecha de entrenamiento próximo', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Card(
-                    color: Colors.white,
-                    child: Container(
-                      height: 250,
-                      alignment: Alignment.center,
-                      // Se recomienda usar el paquete table_calendar para el widget funcional
-                      child: const Text('Calendario interactivo: Octubre 2026'), 
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  const Text('Disciplinas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Card(
-                    color: Colors.white,
-                    child: ListTile(
-                      leading: Icon(Icons.check_circle, color: Colors.blue[900], size: 40),
-                      title: const Text('Estás inscrito en', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      subtitle: Text('Fútbol campo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[900])),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarButton(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[900],
-          minimumSize: const Size(double.infinity, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
-        onPressed: () {},
-        child: Text(title, style: const TextStyle(color: Colors.white)),
       ),
     );
   }

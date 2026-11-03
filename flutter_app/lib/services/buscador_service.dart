@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/deporte.dart';
 import '../models/inscripcion.dart';
 import 'firestore_service.dart';
@@ -32,9 +34,17 @@ class BuscadorService implements BuscadorDataSource {
     return resultado.docs.map(Deporte.fromFirestore).toList();
   }
 
+  /// Sin sesión abierta las reglas no dejan leer las inscripciones; en ese
+  /// caso el catálogo público se muestra igual, sin el conteo de cupos.
   @override
   Future<Map<String, int>> inscritosPorDeporte() async {
-    final resultado = await _firestore.enrollments.get();
+    QuerySnapshot<Map<String, dynamic>>? resultado;
+    try {
+      resultado = await _firestore.enrollments.get();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+    }
+    if (resultado == null) return const {};
     final conteo = <String, int>{};
     for (final doc in resultado.docs) {
       final inscripcion = Inscripcion.fromFirestore(doc);
