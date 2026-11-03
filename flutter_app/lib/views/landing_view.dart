@@ -588,11 +588,13 @@ class _Destacado extends StatelessWidget {
       children: [
         Icon(icono, color: _naranja, size: 20),
         const SizedBox(width: 6),
-        Text(
-          texto,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            texto,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
