@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../firebase_options.dart';
+import '../utils/app_validators.dart';
 
 /// Roles que puede tener una cuenta (campo `rol` de la colección `users`).
 class RolesUsuario {
@@ -20,6 +23,18 @@ class RolesUsuario {
     if (texto == admin || texto == 'administrador') return admin;
     return estudiante;
   }
+
+  /// Nombre del rol para mostrar en pantalla.
+  static String nombreVisible(String rol) {
+    switch (rol) {
+      case admin:
+        return 'administrador';
+      case entrenador:
+        return 'entrenador';
+      default:
+        return 'estudiante';
+    }
+  }
 }
 
 /// Datos mínimos del usuario que inició sesión: lo que necesita la
@@ -36,7 +51,8 @@ class SesionUsuario {
   final String email;
   final String nombre;
 
-  /// `RolesUsuario.estudiante` o `RolesUsuario.entrenador`.
+  /// `RolesUsuario.estudiante`, `RolesUsuario.entrenador` o
+  /// `RolesUsuario.admin`.
   final String rol;
 
   bool get esEntrenador => rol == RolesUsuario.entrenador;
@@ -50,49 +66,69 @@ class AuthService {
   AuthService._privateConstructor();
   static final AuthService instance = AuthService._privateConstructor();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _carnets =>
+      _firestore.collection('carnets');
+  CollectionReference<Map<String, dynamic>> get _cedulas =>
+      _firestore.collection('cedulas');
 
   /// Usuario de Firebase Authentication con la sesión abierta, si hay uno.
   User? get usuarioActual => _auth.currentUser;
 
-  /// Registro público: crea la cuenta en Firebase Authentication y guarda
-  /// su perfil en `users/{uid}`. Desde el registro público solo se pueden
-  /// crear **estudiantes**; los entrenadores los registra el administrador
-  /// con [registrarEntrenador].
+  // --------------------------------------------------------------- registro
+
+  /// Registro público de **estudiantes**: valida todos los datos, revisa que
+  /// el carnet y la cédula no estén registrados, crea la cuenta en Firebase
+  /// Authentication y guarda en un solo lote (batch) el perfil
+  /// `users/{uid}` y los índices `carnets/{carnet}` y `cedulas/{cedula}`.
   ///
-  /// Si el carnet ya está registrado lanza una [FirebaseAuthException] con
-  /// el código `carnet-already-in-use`. Si falla el guardado del perfil, se
-  /// borra la cuenta recién creada para no dejar usuarios sin rol.
+  /// Los entrenadores los registra el administrador con
+  /// [registrarEntrenador].
+  ///
+  /// Errores (como [FirebaseAuthException]): `datos-invalidos`,
+  /// `carnet-already-in-use`, `cedula-already-in-use`,
+  /// `email-already-in-use`, `weak-password`. Si falla el guardado del
+  /// perfil se borra la cuenta recién creada para no dejar usuarios a medias.
   Future<SesionUsuario> registerUser({
+    required String nombre,
+    required String apellido,
     required String email,
-    required String username,
+    required String cedula,
     required String carnet,
     required String password,
-    required String rol,
   }) async {
-    final correo = email.trim().toLowerCase();
-    final carnetLimpio = carnet.trim();
-    final rolLimpio = RolesUsuario.desdeTexto(rol);
-    if (rolLimpio != RolesUsuario.estudiante) {
-      throw FirebaseAuthException(
-        code: 'rol-no-permitido',
-        message:
-            'Las cuentas de entrenador las crea el administrador desde su panel.',
-      );
+    final error = AppValidators.validarRegistroEstudiante(
+      nombre: nombre,
+      apellido: apellido,
+      email: email,
+      cedula: cedula,
+      carnet: carnet,
+      password: password,
+    );
+    if (error != null) {
+      throw FirebaseAuthException(code: 'datos-invalidos', message: error);
     }
 
-    final carnetExistente = await _users
-        .where('carnet', isEqualTo: carnetLimpio)
-        .limit(1)
-        .get();
-    if (carnetExistente.docs.isNotEmpty) {
+    final nombreLimpio = AppValidators.limpiarNombre(nombre);
+    final apellidoLimpio = AppValidators.limpiarNombre(apellido);
+    final correo = email.trim().toLowerCase();
+    final carnetLimpio = carnet.trim();
+    final cedulaLimpia = AppValidators.normalizarCedula(cedula)!;
+
+    if ((await _carnets.doc(carnetLimpio).get()).exists) {
       throw FirebaseAuthException(
         code: 'carnet-already-in-use',
         message: 'Ese carnet ya está registrado.',
+      );
+    }
+    if ((await _cedulas.doc(cedulaLimpia).get()).exists) {
+      throw FirebaseAuthException(
+        code: 'cedula-already-in-use',
+        message: 'Esa cédula ya está registrada.',
       );
     }
 
@@ -109,17 +145,32 @@ class AuthService {
     }
 
     try {
-      await _users.doc(user.uid).set({
-        'uid': user.uid,
-        'email': correo,
-        'username': username.trim(),
-        'nombre': username.trim(),
-        'apellido': '',
-        'carnet': carnetLimpio,
-        'rol': rolLimpio,
-        'estadoActivo': true,
-        'fechaRegistro': FieldValue.serverTimestamp(),
-      });
+      final lote = _firestore.batch()
+        ..set(_users.doc(user.uid), {
+          'uid': user.uid,
+          'email': correo,
+          'nombre': nombreLimpio,
+          'apellido': apellidoLimpio,
+          'cedula': cedulaLimpia,
+          'carnet': carnetLimpio,
+          'rol': RolesUsuario.estudiante,
+          'estadoActivo': true,
+          'fechaRegistro': FieldValue.serverTimestamp(),
+        })
+        ..set(_carnets.doc(carnetLimpio), {'uid': user.uid, 'email': correo})
+        ..set(_cedulas.doc(cedulaLimpia), {'uid': user.uid});
+      await lote.commit();
+      await user.updateDisplayName('$nombreLimpio $apellidoLimpio');
+    } on FirebaseException catch (e) {
+      await user.delete();
+      if (e.code == 'permission-denied') {
+        // Las reglas rechazan el lote si el carnet o la cédula ya existen.
+        throw FirebaseAuthException(
+          code: 'datos-duplicados',
+          message: 'El carnet o la cédula ya están registrados.',
+        );
+      }
+      rethrow;
     } catch (e) {
       await user.delete();
       rethrow;
@@ -128,27 +179,12 @@ class AuthService {
     return SesionUsuario(
       uid: user.uid,
       email: correo,
-      nombre: username.trim(),
-      rol: rolLimpio,
-    );
-  }
-
-  /// Registro de estudiantes (se mantiene por compatibilidad con el código
-  /// que ya lo usaba).
-  Future<SesionUsuario> registerStudent({
-    required String email,
-    required String username,
-    required String carnet,
-    required String password,
-  }) {
-    return registerUser(
-      email: email,
-      username: username,
-      carnet: carnet,
-      password: password,
+      nombre: '$nombreLimpio $apellidoLimpio',
       rol: RolesUsuario.estudiante,
     );
   }
+
+  // ---------------------------------------------------------- inicio de sesión
 
   /// Inicia sesión con correo o carnet y contraseña en Firebase
   /// Authentication.
@@ -156,23 +192,10 @@ class AuthService {
     required String accountIdentifier,
     required String password,
   }) async {
-    String emailToUse = accountIdentifier.trim();
-
-    // Si el identificador es numérico (carnet), se busca su correo en Firestore.
-    if (RegExp(r'^[0-9]+$').hasMatch(emailToUse)) {
-      final query = await _users
-          .where('carnet', isEqualTo: emailToUse)
-          .limit(1)
-          .get();
-
-      if (query.docs.isEmpty) {
-        throw FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'No se encontró ningún usuario con ese carnet.',
-        );
-      }
-      emailToUse = (query.docs.first.data()['email'] ?? '').toString();
-    }
+    final identificador = accountIdentifier.trim();
+    final emailToUse = RegExp(r'^[0-9]+$').hasMatch(identificador)
+        ? await _correoDelCarnet(identificador)
+        : identificador.toLowerCase();
 
     return _auth.signInWithEmailAndPassword(
       email: emailToUse,
@@ -180,11 +203,27 @@ class AuthService {
     );
   }
 
-  /// Valida las credenciales y devuelve la sesión con el rol guardado en
-  /// la base de datos.
+  /// Busca el correo asociado a un carnet en el índice `carnets`.
+  Future<String> _correoDelCarnet(String carnet) async {
+    final indice = await _carnets.doc(carnet).get();
+    final correo = (indice.data()?['email'] ?? '').toString();
+    if (correo.isNotEmpty) return correo;
+    throw FirebaseAuthException(
+      code: 'user-not-found',
+      message: 'No encontramos ese carnet. Inicia sesión con tu correo.',
+    );
+  }
+
+  /// Valida las credenciales y devuelve la sesión con el rol guardado en la
+  /// base de datos.
+  ///
+  /// Si se indica [rolEsperado] (la opción elegida en el login) y la cuenta
+  /// tiene otro rol, se cierra la sesión y se lanza `rol-incorrecto`. Así
+  /// solo entra al panel de administración quien tiene `rol: "admin"`.
   Future<SesionUsuario> iniciarSesion({
     required String identificador,
     required String password,
+    String? rolEsperado,
   }) async {
     final credential = await loginUser(
       accountIdentifier: identificador,
@@ -197,7 +236,20 @@ class AuthService {
         message: 'No se pudo iniciar sesión.',
       );
     }
-    return obtenerSesion(user);
+    final sesion = await obtenerSesion(user);
+
+    if (rolEsperado != null && sesion.rol != rolEsperado) {
+      await _auth.signOut();
+      throw FirebaseAuthException(
+        code: 'rol-incorrecto',
+        message: rolEsperado == RolesUsuario.admin
+            ? 'Esta cuenta no tiene permisos de administrador.'
+            : 'Esta cuenta está registrada como '
+                  '${RolesUsuario.nombreVisible(sesion.rol)}. Elige esa '
+                  'opción para entrar.',
+      );
+    }
+    return sesion;
   }
 
   /// Lee el perfil `users/{uid}` y arma la sesión. Si el perfil no existe,
@@ -206,6 +258,7 @@ class AuthService {
     final doc = await _users.doc(user.uid).get();
     final datos = doc.data() ?? const <String, dynamic>{};
     final email = (datos['email'] ?? user.email ?? '').toString();
+    unawaited(_completarIndiceDeCarnet(user.uid, datos));
     return SesionUsuario(
       uid: user.uid,
       email: email,
@@ -214,10 +267,34 @@ class AuthService {
     );
   }
 
+  /// Las cuentas creadas antes del índice `carnets` lo reciben al entrar,
+  /// para que también puedan iniciar sesión con el carnet.
+  Future<void> _completarIndiceDeCarnet(
+    String uid,
+    Map<String, dynamic> datos,
+  ) async {
+    final carnet = (datos['carnet'] ?? '').toString().trim();
+    final email = (datos['email'] ?? '').toString().trim();
+    if (AppValidators.validateCarnet(carnet) != null || email.isEmpty) return;
+    try {
+      final indice = _carnets.doc(carnet);
+      if (!(await indice.get()).exists) {
+        await indice.set({'uid': uid, 'email': email});
+      }
+    } catch (_) {
+      // No es crítico: el usuario puede seguir entrando con su correo.
+    }
+  }
+
   /// Sesión abierta actualmente (por ejemplo, al recargar la página), o
-  /// `null` si nadie ha iniciado sesión.
+  /// `null` si nadie ha iniciado sesión. En la web espera a que Firebase
+  /// recupere la sesión guardada antes de responder.
   Future<SesionUsuario?> sesionActual() async {
-    final user = _auth.currentUser;
+    var user = _auth.currentUser;
+    user ??= await _auth
+        .authStateChanges()
+        .first
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
     if (user == null) return null;
     return obtenerSesion(user);
   }
@@ -281,6 +358,15 @@ class AuthService {
     String telefono = '',
     String? deporteId,
   }) async {
+    final error = AppValidators.validateNombre(nombre) ??
+        AppValidators.validateApellido(apellido) ??
+        AppValidators.validateEmail(email) ??
+        (cedula.trim().isEmpty ? null : AppValidators.validateCedula(cedula)) ??
+        AppValidators.validatePassword(password);
+    if (error != null) {
+      throw FirebaseAuthException(code: 'datos-invalidos', message: error);
+    }
+
     final admin = await _verificarAdmin();
     final correo = email.trim().toLowerCase();
 
@@ -301,9 +387,11 @@ class AuthService {
       await _users.doc(entrenador.uid).set({
         'uid': entrenador.uid,
         'email': correo,
-        'nombre': nombre.trim(),
-        'apellido': apellido.trim(),
-        'cedula': cedula.trim(),
+        'nombre': AppValidators.limpiarNombre(nombre),
+        'apellido': AppValidators.limpiarNombre(apellido),
+        'cedula': cedula.trim().isEmpty
+            ? ''
+            : AppValidators.normalizarCedula(cedula),
         'telefono': telefono.trim(),
         'rol': RolesUsuario.entrenador,
         'estadoActivo': true,

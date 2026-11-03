@@ -8,6 +8,7 @@ import '../views/admin/registrar_entrenador_view.dart';
 import '../views/entrenador/entrenador_home_screen.dart';
 import '../views/estudiante/perfil_estudiante_view.dart';
 import '../views/student_view.dart';
+import '../views/widgets/avatar_usuario.dart';
 import 'app_routes.dart';
 
 /// Punto único donde la navegación se conecta con las vistas de cada rol.
@@ -24,13 +25,17 @@ Widget construirVistaEntrenador(BuildContext context, SesionUsuario sesion) {
     entrenadorId: sesion.uid,
     nombreEntrenador: sesion.nombre,
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
+    onIrALanding: () => AppRoutes.irALanding(context),
   );
 }
 
 Widget construirVistaEstudiante(BuildContext context, SesionUsuario sesion) {
   return StudentView(
+    avatar: AvatarUsuarioEnVivo(uid: sesion.uid),
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onAbrirPerfil: () => AppRoutes.abrirPerfilEstudiante(context, sesion),
+    onIrACatalogo: () => Navigator.of(context).pushNamed(AppRoutes.buscador),
+    onIrALanding: () => AppRoutes.irALanding(context),
   );
 }
 
@@ -46,6 +51,7 @@ Widget construirPerfilEstudiante(BuildContext context, SesionUsuario sesion) {
       }
     },
     onIrACatalogo: () => Navigator.of(context).pushNamed(AppRoutes.buscador),
+    onIrALanding: () => AppRoutes.irALanding(context),
   );
 }
 
@@ -54,6 +60,7 @@ Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
   return AdminDashboardView(
     nombreAdmin: sesion.nombre,
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
+    onIrALanding: () => AppRoutes.irALanding(context),
     onRegistrarEntrenador: () =>
         navigator.pushNamed(AppRoutes.registrarEntrenador, arguments: sesion),
     onCrearDeporte: () =>

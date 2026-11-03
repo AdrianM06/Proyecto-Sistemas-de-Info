@@ -15,6 +15,7 @@ class AdminDashboardView extends StatelessWidget {
     super.key,
     this.nombreAdmin = 'Administrador',
     this.onCerrarSesion,
+    this.onIrALanding,
     this.onRegistrarEntrenador,
     this.onCrearDeporte,
     this.onGestionarEstudiantes,
@@ -22,6 +23,9 @@ class AdminDashboardView extends StatelessWidget {
 
   final String nombreAdmin;
   final VoidCallback? onCerrarSesion;
+
+  /// Botón "Página principal": vuelve a la Landing sin cerrar la sesión.
+  final VoidCallback? onIrALanding;
   final VoidCallback? onRegistrarEntrenador;
   final VoidCallback? onCrearDeporte;
   final VoidCallback? onGestionarEstudiantes;
@@ -34,6 +38,13 @@ class AdminDashboardView extends StatelessWidget {
         backgroundColor: _azul,
         foregroundColor: Colors.white,
         actions: [
+          if (onIrALanding != null)
+            IconButton(
+              key: const Key('boton-ir-landing'),
+              tooltip: 'Página principal',
+              onPressed: onIrALanding,
+              icon: const Icon(Icons.home_outlined),
+            ),
           if (onCerrarSesion != null)
             IconButton(
               key: const Key('boton-cerrar-sesion'),

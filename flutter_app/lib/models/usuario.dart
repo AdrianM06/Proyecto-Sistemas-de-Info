@@ -22,7 +22,7 @@ RolUsuario rolDesdeTexto(String? valor) {
 /// Modelo de un documento de la colección `users` de Cloud Firestore.
 ///
 /// Campos según el documento del Hito 2: email, nombre, apellido, rol,
-/// carnet, cedula, carrera, telefono y estadoActivo. El id del documento
+/// carnet, cedula, carrera, telefono, fotoUrl y estadoActivo. El id del documento
 /// es el `uid` de Firebase Authentication.
 class Usuario {
   const Usuario({
@@ -35,6 +35,7 @@ class Usuario {
     this.cedula,
     this.carrera,
     this.telefono,
+    this.fotoUrl,
     this.estadoActivo = true,
   });
 
@@ -47,6 +48,9 @@ class Usuario {
   final String? cedula;
   final String? carrera;
   final String? telefono;
+
+  /// URL de la foto de perfil guardada en Firebase Storage.
+  final String? fotoUrl;
   final bool estadoActivo;
 
   /// Nombre y apellido juntos, por ejemplo "Andrea Pérez".
@@ -77,6 +81,7 @@ class Usuario {
       cedula: textoOpcionalDe(json['cedula']),
       carrera: textoOpcionalDe(json['carrera']),
       telefono: textoOpcionalDe(json['telefono']),
+      fotoUrl: textoOpcionalDe(json['fotoUrl']),
       estadoActivo: booleanoDe(json['estadoActivo'], porDefecto: true),
     );
   }
@@ -95,6 +100,24 @@ class Usuario {
         'cedula': cedula,
         'carrera': carrera,
         'telefono': telefono,
+        'fotoUrl': fotoUrl,
         'estadoActivo': estadoActivo,
       };
+
+  /// Copia del usuario con algunos campos cambiados.
+  Usuario copiarCon({String? nombre, String? apellido, String? fotoUrl}) {
+    return Usuario(
+      uid: uid,
+      email: email,
+      nombre: nombre ?? this.nombre,
+      apellido: apellido ?? this.apellido,
+      rol: rol,
+      carnet: carnet,
+      cedula: cedula,
+      carrera: carrera,
+      telefono: telefono,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
+      estadoActivo: estadoActivo,
+    );
+  }
 }

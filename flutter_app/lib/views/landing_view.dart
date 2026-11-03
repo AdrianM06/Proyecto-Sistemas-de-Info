@@ -1,6 +1,8 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../navigation/app_routes.dart';
+import '../services/auth_service.dart';
 
 // Paleta universitaria (la misma del login).
 const _azul = Color(0xFF003B82);
@@ -12,7 +14,9 @@ const _gris = Color(0xFF5E6B84);
 
 /// Landing Page (ruta `/`): presenta Samán Deportivo como la plataforma de
 /// deportes de la Universidad Metropolitana. "Acceder" y "Comenzar Ahora"
-/// llevan al inicio de sesión.
+/// llevan al inicio de sesión; si ya hay una sesión abierta, "Ir a mi panel"
+/// lleva a la vista del rol. En pantallas angostas los enlaces de la barra
+/// se agrupan en un menú hamburguesa.
 class LandingView extends StatefulWidget {
   const LandingView({super.key});
 
@@ -25,6 +29,25 @@ class _LandingViewState extends State<LandingView> {
   final _claveModulos = GlobalKey();
   final _clavePasos = GlobalKey();
 
+  /// Sesión abierta, si el usuario ya inició sesión antes.
+  SesionUsuario? _sesion;
+
+  @override
+  void initState() {
+    super.initState();
+    _buscarSesion();
+  }
+
+  Future<void> _buscarSesion() async {
+    try {
+      if (Firebase.apps.isEmpty) return;
+      final sesion = await AuthService.instance.sesionActual();
+      if (mounted && sesion != null) setState(() => _sesion = sesion);
+    } catch (_) {
+      // Sin sesión o sin conexión: la Landing funciona igual.
+    }
+  }
+
   void _irA(GlobalKey clave) {
     final contexto = clave.currentContext;
     if (contexto == null) return;
@@ -35,40 +58,89 @@ class _LandingViewState extends State<LandingView> {
     );
   }
 
-  void _irAlLogin() => Navigator.of(context).pushNamed(AppRoutes.login);
+  /// "Acceder": al login, o a la vista del rol si ya hay sesión.
+  void _acceder() {
+    final sesion = _sesion;
+    if (sesion != null) {
+      AppRoutes.irAVistaDelRol(context, sesion);
+    } else {
+      Navigator.of(context).pushNamed(AppRoutes.login);
+    }
+  }
+
+  void _avisar(String texto) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(texto)));
+  }
+
+  /// Abre un módulo de "Nuestros módulos principales".
+  void _abrirModulo(_Modulo modulo) {
+    final navigator = Navigator.of(context);
+    if (modulo.rol == null) {
+      navigator.pushNamed(modulo.ruta);
+      return;
+    }
+    final sesion = _sesion;
+    if (sesion == null) {
+      _avisar('Inicia sesión para entrar a ${modulo.titulo}.');
+      navigator.pushNamed(AppRoutes.login);
+      return;
+    }
+    if (sesion.rol != modulo.rol) {
+      _avisar(
+        '${modulo.titulo} es solo para cuentas de '
+        '${RolesUsuario.nombreVisible(modulo.rol!)}. Te llevamos a tu panel.',
+      );
+      AppRoutes.irAVistaDelRol(context, sesion);
+      return;
+    }
+    navigator.pushNamed(modulo.ruta, arguments: sesion);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final escritorio = MediaQuery.sizeOf(context).width >= 900;
+    final textoAcceder = _sesion == null ? 'Acceder' : 'Ir a mi panel';
     return Scaffold(
       backgroundColor: _fondo,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final escritorio = constraints.maxWidth >= 900;
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _BarraNavegacion(
-                  escritorio: escritorio,
-                  onAcceder: _irAlLogin,
-                  onMision: () => _irA(_claveMision),
-                  onModulos: () => _irA(_claveModulos),
-                  onPasos: () => _irA(_clavePasos),
-                ),
-                _Portada(
-                  escritorio: escritorio,
-                  onComenzar: _irAlLogin,
-                  onConocerMas: () => _irA(_claveMision),
-                ),
-                _SeccionMisionVision(key: _claveMision, escritorio: escritorio),
-                _SeccionModulos(key: _claveModulos, escritorio: escritorio),
-                _SeccionPasos(key: _clavePasos, escritorio: escritorio),
-                _BandaLlamado(onAcceder: _irAlLogin),
-                const _PiePagina(),
-              ],
+      endDrawer: escritorio
+          ? null
+          : _MenuLanding(
+              textoAcceder: textoAcceder,
+              onAcceder: _acceder,
+              onMision: () => _irA(_claveMision),
+              onModulos: () => _irA(_claveModulos),
+              onPasos: () => _irA(_clavePasos),
             ),
-          );
-        },
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _BarraNavegacion(
+              escritorio: escritorio,
+              textoAcceder: textoAcceder,
+              onAcceder: _acceder,
+              onMision: () => _irA(_claveMision),
+              onModulos: () => _irA(_claveModulos),
+              onPasos: () => _irA(_clavePasos),
+            ),
+            _Portada(
+              escritorio: escritorio,
+              onComenzar: _acceder,
+              onConocerMas: () => _irA(_claveMision),
+            ),
+            _SeccionMisionVision(key: _claveMision, escritorio: escritorio),
+            _SeccionModulos(
+              key: _claveModulos,
+              escritorio: escritorio,
+              onAbrir: _abrirModulo,
+            ),
+            _SeccionPasos(key: _clavePasos, escritorio: escritorio),
+            _BandaLlamado(textoAcceder: textoAcceder, onAcceder: _acceder),
+            const _PiePagina(),
+          ],
+        ),
       ),
     );
   }
@@ -153,6 +225,7 @@ class _TituloSeccion extends StatelessWidget {
 class _BarraNavegacion extends StatelessWidget {
   const _BarraNavegacion({
     required this.escritorio,
+    required this.textoAcceder,
     required this.onAcceder,
     required this.onMision,
     required this.onModulos,
@@ -160,6 +233,7 @@ class _BarraNavegacion extends StatelessWidget {
   });
 
   final bool escritorio;
+  final String textoAcceder;
   final VoidCallback onAcceder;
   final VoidCallback onMision;
   final VoidCallback onModulos;
@@ -197,24 +271,115 @@ class _BarraNavegacion extends StatelessWidget {
             _EnlaceNavegacion(texto: 'Módulos', onTap: onModulos),
             _EnlaceNavegacion(texto: 'Cómo funciona', onTap: onPasos),
             const SizedBox(width: 12),
-          ],
-          ElevatedButton(
-            key: const Key('landing-boton-acceder'),
-            onPressed: onAcceder,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _naranja,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            ElevatedButton(
+              key: const Key('landing-boton-acceder'),
+              onPressed: onAcceder,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _naranja,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                textoAcceder,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            child: const Text(
-              'Acceder',
-              style: TextStyle(fontWeight: FontWeight.w700),
+          ] else
+            // En pantallas angostas todo va dentro del menú hamburguesa.
+            Builder(
+              builder: (context) => IconButton(
+                key: const Key('landing-boton-menu'),
+                tooltip: 'Menú',
+                icon: const Icon(Icons.menu, color: _azul, size: 30),
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Menú desplegable de la Landing en pantallas angostas.
+class _MenuLanding extends StatelessWidget {
+  const _MenuLanding({
+    required this.textoAcceder,
+    required this.onAcceder,
+    required this.onMision,
+    required this.onModulos,
+    required this.onPasos,
+  });
+
+  final String textoAcceder;
+  final VoidCallback onAcceder;
+  final VoidCallback onMision;
+  final VoidCallback onModulos;
+  final VoidCallback onPasos;
+
+  @override
+  Widget build(BuildContext context) {
+    void elegir(VoidCallback accion) {
+      Navigator.of(context).pop(); // Cierra el menú.
+      accion();
+    }
+
+    return Drawer(
+      key: const Key('landing-menu'),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text(
+                'Samán Deportivo',
+                style: TextStyle(
+                  color: _azul,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: _azul),
+              title: const Text('Misión y Visión'),
+              onTap: () => elegir(onMision),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_outlined, color: _azul),
+              title: const Text('Módulos'),
+              onTap: () => elegir(onModulos),
+            ),
+            ListTile(
+              leading: const Icon(Icons.route_outlined, color: _azul),
+              title: const Text('Cómo funciona'),
+              onTap: () => elegir(onPasos),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: ElevatedButton(
+                key: const Key('landing-menu-acceder'),
+                onPressed: () => elegir(onAcceder),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _naranja,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  textoAcceder,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -423,11 +588,13 @@ class _Destacado extends StatelessWidget {
       children: [
         Icon(icono, color: _naranja, size: 20),
         const SizedBox(width: 6),
-        Text(
-          texto,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            texto,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -635,31 +802,81 @@ class _ContenidoProposito extends StatelessWidget {
 
 // --------------------------------------------------------------- módulos
 
+/// Un módulo de la plataforma. Si [rol] es `null` el módulo es público.
+class _Modulo {
+  const _Modulo({
+    required this.clave,
+    required this.icono,
+    required this.titulo,
+    required this.texto,
+    required this.ruta,
+    this.rol,
+  });
+
+  final String clave;
+  final IconData icono;
+  final String titulo;
+  final String texto;
+  final String ruta;
+  final String? rol;
+}
+
 class _SeccionModulos extends StatelessWidget {
-  const _SeccionModulos({super.key, required this.escritorio});
+  const _SeccionModulos({
+    super.key,
+    required this.escritorio,
+    required this.onAbrir,
+  });
 
   final bool escritorio;
+  final ValueChanged<_Modulo> onAbrir;
 
   static const _modulos = [
-    (
-      Icons.sports_soccer,
-      'Catálogo de disciplinas',
-      'Busca por nombre, día de entrenamiento o cupos disponibles.',
+    _Modulo(
+      clave: 'catalogo',
+      icono: Icons.sports_soccer,
+      titulo: 'Catálogo de disciplinas',
+      texto: 'Busca por nombre, día de entrenamiento o cupos disponibles.',
+      ruta: AppRoutes.buscador,
     ),
-    (
-      Icons.how_to_reg,
-      'Inscripciones',
-      'Inscríbete o retírate de una disciplina en pocos clics.',
+    _Modulo(
+      clave: 'inscripciones',
+      icono: Icons.how_to_reg,
+      titulo: 'Inscripciones',
+      texto: 'Consulta tus disciplinas e inscríbete desde tu panel.',
+      ruta: AppRoutes.estudiante,
+      rol: RolesUsuario.estudiante,
     ),
-    (
-      Icons.fact_check,
-      'Control de asistencia',
-      'Los entrenadores registran la asistencia de cada sesión.',
+    _Modulo(
+      clave: 'perfil',
+      icono: Icons.person,
+      titulo: 'Perfil del estudiante',
+      texto: 'Tus datos, tu foto, tu saldo y el cambio de contraseña.',
+      ruta: AppRoutes.perfilEstudiante,
+      rol: RolesUsuario.estudiante,
     ),
-    (
-      Icons.person,
-      'Perfil del estudiante',
-      'Consulta tus datos, tu saldo y cambia tu contraseña.',
+    _Modulo(
+      clave: 'asistencia',
+      icono: Icons.fact_check,
+      titulo: 'Control de asistencia',
+      texto: 'Los entrenadores pasan lista y revisan el historial.',
+      ruta: AppRoutes.entrenador,
+      rol: RolesUsuario.entrenador,
+    ),
+    _Modulo(
+      clave: 'admin',
+      icono: Icons.admin_panel_settings,
+      titulo: 'Panel administrativo',
+      texto: 'Disciplinas, horarios, entrenadores y estudiantes.',
+      ruta: AppRoutes.adminDashboard,
+      rol: RolesUsuario.admin,
+    ),
+    _Modulo(
+      clave: 'registro',
+      icono: Icons.person_add_alt_1,
+      titulo: 'Crea tu cuenta',
+      texto: 'Regístrate con tu correo estudiantil de la Unimet.',
+      ruta: AppRoutes.registro,
     ),
   ];
 
@@ -672,13 +889,16 @@ class _SeccionModulos extends StatelessWidget {
           children: [
             const _TituloSeccion(
               etiqueta: 'La plataforma',
-              titulo: 'Todo tu deporte en un solo lugar',
+              titulo: 'Nuestros módulos principales',
+              descripcion:
+                  'Toca un módulo para entrar. Los que necesitan cuenta te '
+                  'piden iniciar sesión primero.',
             ),
             const SizedBox(height: 40),
             LayoutBuilder(
               builder: (context, constraints) {
                 final columnas = escritorio
-                    ? 4
+                    ? 3
                     : (constraints.maxWidth >= 560 ? 2 : 1);
                 const espacio = 20.0;
                 final ancho =
@@ -688,13 +908,12 @@ class _SeccionModulos extends StatelessWidget {
                   spacing: espacio,
                   runSpacing: espacio,
                   children: [
-                    for (final (icono, titulo, texto) in _modulos)
+                    for (final modulo in _modulos)
                       SizedBox(
                         width: ancho,
                         child: _TarjetaModulo(
-                          icono: icono,
-                          titulo: titulo,
-                          texto: texto,
+                          modulo: modulo,
+                          onTap: () => onAbrir(modulo),
                         ),
                       ),
                   ],
@@ -709,43 +928,59 @@ class _SeccionModulos extends StatelessWidget {
 }
 
 class _TarjetaModulo extends StatelessWidget {
-  const _TarjetaModulo({
-    required this.icono,
-    required this.titulo,
-    required this.texto,
-  });
+  const _TarjetaModulo({required this.modulo, required this.onTap});
 
-  final IconData icono;
-  final String titulo;
-  final String texto;
+  final _Modulo modulo;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: _fondo,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icono, color: _azul, size: 36),
-          const SizedBox(height: 14),
-          Text(
-            titulo,
-            style: const TextStyle(
-              color: _azulOscuro,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
+    return Material(
+      color: _fondo,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: Key('modulo-${modulo.clave}'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(modulo.icono, color: _azul, size: 36),
+              const SizedBox(height: 14),
+              Text(
+                modulo.titulo,
+                style: const TextStyle(
+                  color: _azulOscuro,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                modulo.texto,
+                style: const TextStyle(color: _gris, fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      modulo.rol == null ? 'Entrar' : 'Entrar con mi cuenta',
+                      style: const TextStyle(
+                        color: _naranja,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward, color: _naranja, size: 18),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            texto,
-            style: const TextStyle(color: _gris, fontSize: 14, height: 1.5),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -869,8 +1104,9 @@ class _TarjetaPaso extends StatelessWidget {
 // ----------------------------------------------------- llamado y pie
 
 class _BandaLlamado extends StatelessWidget {
-  const _BandaLlamado({required this.onAcceder});
+  const _BandaLlamado({required this.textoAcceder, required this.onAcceder});
 
+  final String textoAcceder;
   final VoidCallback onAcceder;
 
   @override
@@ -915,9 +1151,9 @@ class _BandaLlamado extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Acceder',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              child: Text(
+                textoAcceder,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
             ),
           ],

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -5,6 +7,7 @@ import '../models/deporte.dart';
 import '../models/inscripcion.dart';
 import '../models/usuario.dart';
 import 'firestore_service.dart';
+import 'foto_perfil_service.dart';
 
 /// Disciplina en la que el estudiante tiene una inscripción activa.
 class DisciplinaInscrita {
@@ -69,6 +72,17 @@ abstract class PerfilEstudianteDataSource {
 
   /// Marca la inscripción como `retirada`.
   Future<void> retirarDisciplina(String inscripcionId);
+
+  /// Cambia el nombre y el apellido. El carnet y la cédula no se pueden
+  /// cambiar después del registro.
+  Future<void> actualizarDatos({
+    required String nombre,
+    required String apellido,
+  });
+
+  /// Sube la foto de perfil y devuelve su URL. Lanza [FotoPerfilException]
+  /// si no se pudo.
+  Future<String> subirFotoPerfil(Uint8List bytes, {required String tipo});
 }
 
 /// Implementación real con Firebase Authentication y Cloud Firestore.
@@ -158,6 +172,37 @@ class PerfilEstudianteService implements PerfilEstudianteDataSource {
     });
   }
 
+  User _usuarioConSesion() {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('No hay una sesión abierta.');
+    return user;
+  }
+
+  @override
+  Future<void> actualizarDatos({
+    required String nombre,
+    required String apellido,
+  }) async {
+    final user = _usuarioConSesion();
+    // Solo nombre y apellido: las reglas de Firestore rechazan cualquier
+    // cambio del carnet, la cédula, el correo o el rol.
+    await _firestore.users.doc(user.uid).update({
+      'nombre': nombre,
+      'apellido': apellido,
+    });
+    await user.updateDisplayName('$nombre $apellido');
+  }
+
+  @override
+  Future<String> subirFotoPerfil(Uint8List bytes, {required String tipo}) {
+    final user = _usuarioConSesion();
+    return FotoPerfilService.instance.subir(
+      uid: user.uid,
+      bytes: bytes,
+      tipo: tipo,
+    );
+  }
+
   Future<Map<String, String>> _nombresDeDeportes(List<String> ids) async {
     final nombres = <String, String>{};
     for (var i = 0; i < ids.length; i += _maximoPorConsulta) {
@@ -199,6 +244,7 @@ class PerfilEstudianteService implements PerfilEstudianteDataSource {
       cedula: usuario.cedula,
       carrera: usuario.carrera,
       telefono: usuario.telefono,
+      fotoUrl: usuario.fotoUrl,
       estadoActivo: usuario.estadoActivo,
     );
   }
@@ -237,6 +283,20 @@ class PerfilEstudianteDemoService implements PerfilEstudianteDataSource {
   final double saldo;
   String _contrasena;
 
+  Usuario _usuario = const Usuario(
+    uid: 'est-01',
+    email: 'andrea.perez@correo.unimet.edu.ve',
+    nombre: 'Andrea',
+    apellido: 'Pérez',
+    rol: RolUsuario.estudiante,
+    carnet: '20221110342',
+    cedula: 'V-27123456',
+    carrera: 'Ingeniería de Sistemas',
+  );
+
+  /// Usuario de ejemplo con los cambios hechos (para las pruebas).
+  Usuario get usuario => _usuario;
+
   final List<DisciplinaInscrita> _disciplinas = [
     const DisciplinaInscrita(
       inscripcionId: 'insc-01',
@@ -257,15 +317,7 @@ class PerfilEstudianteDemoService implements PerfilEstudianteDataSource {
   Future<PerfilEstudiante> cargarPerfil() async {
     await Future<void>.delayed(latencia);
     return PerfilEstudiante(
-      usuario: const Usuario(
-        uid: 'est-01',
-        email: 'andrea.perez@correo.unimet.edu.ve',
-        nombre: 'Andrea',
-        apellido: 'Pérez',
-        rol: RolUsuario.estudiante,
-        carnet: '20221110342',
-        carrera: 'Ingeniería de Sistemas',
-      ),
+      usuario: _usuario,
       saldo: saldo,
       disciplinas: List.of(_disciplinas),
     );
@@ -287,5 +339,24 @@ class PerfilEstudianteDemoService implements PerfilEstudianteDataSource {
   Future<void> retirarDisciplina(String inscripcionId) async {
     await Future<void>.delayed(latencia);
     _disciplinas.removeWhere((d) => d.inscripcionId == inscripcionId);
+  }
+
+  @override
+  Future<void> actualizarDatos({
+    required String nombre,
+    required String apellido,
+  }) async {
+    await Future<void>.delayed(latencia);
+    _usuario = _usuario.copiarCon(nombre: nombre, apellido: apellido);
+  }
+
+  @override
+  Future<String> subirFotoPerfil(Uint8List bytes, {required String tipo}) async {
+    await Future<void>.delayed(latencia);
+    final error = FotoPerfilService.validar(bytes, tipo);
+    if (error != null) throw FotoPerfilException(error);
+    const url = 'https://example.com/fotos/est-01.jpg';
+    _usuario = _usuario.copiarCon(fotoUrl: url);
+    return url;
   }
 }

@@ -33,10 +33,38 @@ class UnimetSportsApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: _navy),
         fontFamily: 'Roboto',
         useMaterial3: true,
+        // Transición suave (fundido) entre pantallas en todas las
+        // plataformas: evita el "salto" del diseño al pasar del Inicio al
+        // Perfil.
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: {
+            for (final plataforma in TargetPlatform.values)
+              plataforma: const _TransicionFundido(),
+          },
+        ),
       ),
       // La raíz (/) es la Landing Page; desde ahí se entra al login.
       initialRoute: AppRoutes.landing,
       onGenerateRoute: AppRoutes.generarRuta,
+    );
+  }
+}
+
+/// Transición de página con un fundido corto.
+class _TransicionFundido extends PageTransitionsBuilder {
+  const _TransicionFundido();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+      child: child,
     );
   }
 }

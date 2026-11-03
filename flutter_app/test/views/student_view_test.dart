@@ -29,4 +29,43 @@ void main() {
     await tester.pump();
     expect(sesionCerrada, isTrue);
   });
+
+  testWidgets('el menú hamburguesa agrupa los botones y funcionan', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    var catalogo = false;
+    var landing = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StudentView(
+          onAbrirPerfil: () {},
+          onCerrarSesion: () {},
+          onIrACatalogo: () => catalogo = true,
+          onIrALanding: () => landing = true,
+        ),
+      ),
+    );
+
+    // Con el menú cerrado los botones no aparecen debajo de la barra.
+    expect(find.byKey(const Key('menu-Catálogo')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('boton-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('menu-Catálogo')));
+    await tester.pumpAndSettle();
+    expect(catalogo, isTrue);
+    // Al elegir una opción el menú se cierra.
+    expect(find.byKey(const Key('menu-estudiante')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('boton-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('menu-Página principal')));
+    await tester.pumpAndSettle();
+    expect(landing, isTrue);
+  });
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../services/foto_perfil_service.dart';
 import '../services/perfil_estudiante_service.dart';
 import '../utils/app_validators.dart';
 
@@ -23,6 +24,9 @@ class PerfilEstudianteController extends ChangeNotifier {
 
   String? _retirando;
 
+  bool _subiendoFoto = false;
+  bool _guardandoDatos = false;
+
   bool get cargando => _cargando;
   String? get error => _error;
   PerfilEstudiante? get perfil => _perfil;
@@ -38,6 +42,12 @@ class PerfilEstudianteController extends ChangeNotifier {
 
   /// Id de la inscripción que se está retirando, si hay una.
   String? get retirando => _retirando;
+
+  /// `true` mientras se sube la foto de perfil.
+  bool get subiendoFoto => _subiendoFoto;
+
+  /// `true` mientras se guardan el nombre y el apellido.
+  bool get guardandoDatos => _guardandoDatos;
 
   Future<void> iniciar() async {
     _cargando = true;
@@ -119,6 +129,71 @@ class PerfilEstudianteController extends ChangeNotifier {
       return false;
     } finally {
       _retirando = null;
+      notifyListeners();
+    }
+  }
+
+  /// Guarda el nombre y el apellido. Devuelve el error o `null` si se
+  /// guardó. El carnet y la cédula no se pueden cambiar.
+  Future<String?> actualizarDatos({
+    required String nombre,
+    required String apellido,
+  }) async {
+    final perfil = _perfil;
+    if (perfil == null) return 'Tu perfil aún no se ha cargado.';
+    final error = AppValidators.validateNombre(nombre) ??
+        AppValidators.validateApellido(apellido);
+    if (error != null) return error;
+
+    final nombreLimpio = AppValidators.limpiarNombre(nombre);
+    final apellidoLimpio = AppValidators.limpiarNombre(apellido);
+    _guardandoDatos = true;
+    notifyListeners();
+    try {
+      await _datos.actualizarDatos(
+        nombre: nombreLimpio,
+        apellido: apellidoLimpio,
+      );
+      _perfil = PerfilEstudiante(
+        usuario: perfil.usuario.copiarCon(
+          nombre: nombreLimpio,
+          apellido: apellidoLimpio,
+        ),
+        saldo: perfil.saldo,
+        disciplinas: perfil.disciplinas,
+      );
+      return null;
+    } catch (e) {
+      return 'No se pudieron guardar tus datos. Intenta de nuevo.';
+    } finally {
+      _guardandoDatos = false;
+      notifyListeners();
+    }
+  }
+
+  /// Sube una foto de perfil nueva. Devuelve el error o `null` si se subió.
+  Future<String?> cambiarFoto(Uint8List bytes, {required String tipo}) async {
+    final perfil = _perfil;
+    if (perfil == null || _subiendoFoto) return null;
+    final error = FotoPerfilService.validar(bytes, tipo);
+    if (error != null) return error;
+
+    _subiendoFoto = true;
+    notifyListeners();
+    try {
+      final url = await _datos.subirFotoPerfil(bytes, tipo: tipo);
+      _perfil = PerfilEstudiante(
+        usuario: perfil.usuario.copiarCon(fotoUrl: url),
+        saldo: perfil.saldo,
+        disciplinas: perfil.disciplinas,
+      );
+      return null;
+    } on FotoPerfilException catch (e) {
+      return e.mensaje;
+    } catch (e) {
+      return 'No se pudo subir la foto. Intenta de nuevo.';
+    } finally {
+      _subiendoFoto = false;
       notifyListeners();
     }
   }

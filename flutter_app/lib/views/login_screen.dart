@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
+import '../utils/app_validators.dart';
+import 'widgets/boton_volver_inicio.dart';
 
 /// Pantalla de inicio de sesión (ruta `/login`).
 ///
 /// "Iniciar Sesión" valida las credenciales con Firebase Authentication,
 /// lee el rol del usuario en la colección `users` y lo envía a la vista de
-/// su rol (estudiante, entrenador o admin). "Crear cuenta" abre el registro
-/// de estudiantes; las cuentas de entrenador las crea el administrador.
+/// su rol (estudiante, entrenador o admin). Si la cuenta no tiene el rol que
+/// se eligió, no entra. "Iniciar sesión como Administrador" cambia al acceso
+/// del panel admin. "Crear cuenta" abre el registro de estudiantes; las
+/// cuentas de entrenador las crea el administrador.
 
 // NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
@@ -17,7 +21,7 @@ const _navy = Color(0xFF003B82);
 const _panelGray = Color(0xFFD9D9D9);
 const _buttonBrown = Color(0xFF514943);
 
-enum UserRole { estudiante, entrenador }
+enum UserRole { estudiante, entrenador, admin }
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -92,9 +96,9 @@ class _SportsHero extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.4),
+                Colors.black.withValues(alpha: 0.4),
                 Colors.transparent,
-                Colors.black.withOpacity(0.2),
+                Colors.black.withValues(alpha: 0.2),
               ],
             ),
           ),
@@ -147,6 +151,11 @@ class _LoginContent extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: BotonVolverInicio(),
+                ),
+                const SizedBox(height: 8),
                 const Text(
                   'INICIAR SESIÓN',
                   textAlign: TextAlign.center,
@@ -219,10 +228,14 @@ class _LoginForm extends StatefulWidget {
 }
 
 class _LoginFormState extends State<_LoginForm> {
+  final _formKey = GlobalKey<FormState>();
   UserRole _selectedRole = UserRole.estudiante;
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _mostrarClave = false;
+
+  bool get _modoAdmin => _selectedRole == UserRole.admin;
 
   @override
   void dispose() {
@@ -231,19 +244,25 @@ class _LoginFormState extends State<_LoginForm> {
     super.dispose();
   }
 
+  String get _rolEsperado {
+    switch (_selectedRole) {
+      case UserRole.admin:
+        return RolesUsuario.admin;
+      case UserRole.entrenador:
+        return RolesUsuario.entrenador;
+      case UserRole.estudiante:
+        return RolesUsuario.estudiante;
+    }
+  }
+
+  void _cambiarRol(UserRole rol) {
+    setState(() => _selectedRole = rol);
+  }
+
   Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
-
-    if (identifier.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.red,
-          content: Text('Por favor, complete todos los campos.'),
-        ),
-      );
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -251,17 +270,18 @@ class _LoginFormState extends State<_LoginForm> {
       final sesion = await AuthService.instance.iniciarSesion(
         identificador: identifier,
         password: password,
+        rolEsperado: _rolEsperado,
       );
 
       if (!mounted) return;
 
-      final rolTexto = sesion.esAdmin
-          ? 'administrador'
-          : (sesion.esEntrenador ? 'entrenador' : 'estudiante');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.green,
-          content: Text('¡Bienvenido, ${sesion.nombre}! Entraste como $rolTexto.'),
+          content: Text(
+            '¡Bienvenido, ${sesion.nombre}! Entraste como '
+            '${RolesUsuario.nombreVisible(sesion.rol)}.',
+          ),
         ),
       );
 
@@ -270,11 +290,13 @@ class _LoginFormState extends State<_LoginForm> {
     } on FirebaseAuthException catch (e) {
       String message = 'Credenciales inválidas.';
       if (e.code == 'user-not-found') {
-        message = 'El correo o carnet no está registrado.';
+        message = e.message ?? 'El correo o carnet no está registrado.';
       } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        message = 'Contraseña o credencial incorrecta.';
+        message = 'Correo, carnet o contraseña incorrectos.';
       } else if (e.code == 'invalid-email') {
         message = 'El correo no tiene un formato válido.';
+      } else if (e.code == 'user-disabled') {
+        message = 'Esta cuenta está deshabilitada.';
       } else if (e.code == 'too-many-requests') {
         message = 'Demasiados intentos. Espera un momento e intenta de nuevo.';
       } else if (e.code == 'network-request-failed') {
@@ -290,175 +312,250 @@ class _LoginFormState extends State<_LoginForm> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: Colors.red, content: Text('Error: $e')),
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('No se pudo iniciar sesión. Intenta de nuevo.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  InputDecoration _decoracion({String? ayuda, Widget? sufijo}) {
+    return InputDecoration(
+      border: const OutlineInputBorder(),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      helperText: ayuda,
+      suffixIcon: sufijo,
+      errorMaxLines: 2,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _RoleOption(
-                label: 'Estudiante',
-                backgroundColor: _orange,
-                isSelected: _selectedRole == UserRole.estudiante,
-                onTap: () {
-                  setState(() {
-                    _selectedRole = UserRole.estudiante;
-                  });
-                },
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_modoAdmin)
+            Container(
+              key: const Key('aviso-modo-admin'),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _navy,
+                borderRadius: BorderRadius.circular(14),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _RoleOption(
-                label: 'Entrenador',
-                backgroundColor: _navy,
-                isSelected: _selectedRole == UserRole.entrenador,
-                onTap: () {
-                  setState(() {
-                    _selectedRole = UserRole.entrenador;
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Correo/Carnet Universitario',
-          style: TextStyle(fontSize: 18, color: Colors.black),
-        ),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _identifierController,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Contraseña',
-          style: TextStyle(fontSize: 18, color: Colors.black),
-        ),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _passwordController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text(
-              'dale click ',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            InkWell(
-              onTap: () {
-                Navigator.of(context).pushNamed(AppRoutes.recuperarContrasena);
-              },
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  'aquí',
-                  style: TextStyle(
-                    color: _navy,
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ),
-            const Text(
-              ' si se le olvidó su contraseña',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        ElevatedButton(
-          key: const Key('boton-iniciar-sesion'),
-          onPressed: _isLoading ? null : _handleLogin,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _buttonBrown,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
-                )
-              : const Text(
-                  'Iniciar Sesión',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          key: const Key('boton-crear-cuenta'),
-          onPressed: _isLoading
-              ? null
-              : () {
-                  if (_selectedRole == UserRole.entrenador) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Las cuentas de entrenador las crea el administrador. '
-                          'Pídele tus datos de acceso.',
-                        ),
+              child: const Row(
+                children: [
+                  Icon(Icons.admin_panel_settings, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Acceso de administrador',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                    );
-                    return;
-                  }
-                  Navigator.of(context).pushNamed(AppRoutes.registro);
-                },
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _buttonBrown,
-            side: const BorderSide(color: _buttonBrown, width: 1.5),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _RoleOption(
+                    label: 'Estudiante',
+                    backgroundColor: _orange,
+                    isSelected: _selectedRole == UserRole.estudiante,
+                    onTap: () => _cambiarRol(UserRole.estudiante),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _RoleOption(
+                    label: 'Entrenador',
+                    backgroundColor: _navy,
+                    isSelected: _selectedRole == UserRole.entrenador,
+                    onTap: () => _cambiarRol(UserRole.entrenador),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+          Text(
+            _modoAdmin ? 'Correo institucional' : 'Correo/Carnet Universitario',
+            style: const TextStyle(fontSize: 18, color: Colors.black),
+          ),
+          const SizedBox(height: 4),
+          TextFormField(
+            key: const Key('login-identificador'),
+            controller: _identifierController,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.username, AutofillHints.email],
+            textInputAction: TextInputAction.next,
+            validator: _modoAdmin
+                ? AppValidators.validateEmail
+                : AppValidators.validateIdentificadorLogin,
+            decoration: _decoracion(
+              ayuda: _modoAdmin
+                  ? 'ej. nombre@unimet.edu.ve'
+                  : 'ej. nombre@correo.unimet.edu.ve o 20221110045',
             ),
           ),
-          child: const Text(
-            'Crear cuenta',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w400),
+          const SizedBox(height: 20),
+          const Text(
+            'Contraseña',
+            style: TextStyle(fontSize: 18, color: Colors.black),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          TextFormField(
+            key: const Key('login-clave'),
+            controller: _passwordController,
+            obscureText: !_mostrarClave,
+            autofillHints: const [AutofillHints.password],
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _isLoading ? null : _handleLogin(),
+            validator: (valor) => (valor == null || valor.isEmpty)
+                ? 'Escribe tu contraseña'
+                : null,
+            decoration: _decoracion(
+              sufijo: IconButton(
+                key: const Key('login-ver-clave'),
+                tooltip: _mostrarClave ? 'Ocultar contraseña' : 'Mostrar contraseña',
+                icon: Icon(
+                  _mostrarClave ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () => setState(() => _mostrarClave = !_mostrarClave),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'dale click ',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).pushNamed(AppRoutes.recuperarContrasena);
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    'aquí',
+                    style: TextStyle(
+                      color: _navy,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+              const Text(
+                ' si se le olvidó su contraseña',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            key: const Key('boton-iniciar-sesion'),
+            onPressed: _isLoading ? null : _handleLogin,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _modoAdmin ? _navy : _buttonBrown,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    _modoAdmin ? 'Entrar al panel' : 'Iniciar Sesión',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 12),
+          if (!_modoAdmin)
+            OutlinedButton(
+              key: const Key('boton-crear-cuenta'),
+              onPressed: _isLoading
+                  ? null
+                  : () {
+                      if (_selectedRole == UserRole.entrenador) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Las cuentas de entrenador las crea el administrador. '
+                              'Pídele tus datos de acceso.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.of(context).pushNamed(AppRoutes.registro);
+                    },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _buttonBrown,
+                side: const BorderSide(color: _buttonBrown, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'Crear cuenta',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w400),
+              ),
+            ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const Key('boton-modo-admin'),
+            onPressed: _isLoading
+                ? null
+                : () => _cambiarRol(
+                      _modoAdmin ? UserRole.estudiante : UserRole.admin,
+                    ),
+            style: TextButton.styleFrom(foregroundColor: _navy),
+            icon: Icon(
+              _modoAdmin ? Icons.arrow_back : Icons.admin_panel_settings_outlined,
+            ),
+            label: Text(
+              _modoAdmin
+                  ? 'Volver al acceso de estudiantes y entrenadores'
+                  : 'Iniciar sesión como Administrador',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -492,12 +589,12 @@ class _RoleOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? backgroundColor
-              : backgroundColor.withOpacity(0.35),
+              : backgroundColor.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(14),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: backgroundColor.withOpacity(0.3),
+                    color: backgroundColor.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
