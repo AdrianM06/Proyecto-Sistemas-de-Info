@@ -31,6 +31,8 @@ class EntrenadorHomeScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.nombreEntrenador,
+    this.avatar,
+    this.onAbrirPerfil,
     this.onCerrarSesion,
     this.onIrALanding,
   });
@@ -40,6 +42,8 @@ class EntrenadorHomeScreen extends StatefulWidget {
     Key? key,
     required String entrenadorId,
     required String nombreEntrenador,
+    Widget? avatar,
+    VoidCallback? onAbrirPerfil,
     VoidCallback? onCerrarSesion,
     VoidCallback? onIrALanding,
   }) {
@@ -50,6 +54,8 @@ class EntrenadorHomeScreen extends StatefulWidget {
         entrenadorId: entrenadorId,
       ),
       nombreEntrenador: nombreEntrenador,
+      avatar: avatar,
+      onAbrirPerfil: onAbrirPerfil,
       onCerrarSesion: onCerrarSesion,
       onIrALanding: onIrALanding,
     );
@@ -58,6 +64,13 @@ class EntrenadorHomeScreen extends StatefulWidget {
   /// La pantalla se encarga de liberar este controlador al cerrarse.
   final EntrenadorController controller;
   final String nombreEntrenador;
+
+  /// Foto de perfil de la barra superior. Si es `null` se ve un ícono.
+  final Widget? avatar;
+
+  /// Abre el perfil del entrenador (foto y contraseña). Si es `null`, el
+  /// botón no aparece (por ejemplo, en la demo).
+  final VoidCallback? onAbrirPerfil;
 
   /// Acción del botón "Cerrar sesión" de la barra superior. Si es `null`,
   /// el botón no aparece (por ejemplo, en la demo).
@@ -123,6 +136,13 @@ class _EntrenadorHomeScreenState extends State<EntrenadorHomeScreen> {
                 onPressed: _controller.cargando ? null : _controller.recargar,
                 icon: const Icon(Icons.refresh),
               ),
+              if (widget.onAbrirPerfil != null)
+                IconButton(
+                  key: const Key('boton-perfil'),
+                  tooltip: 'Mi perfil',
+                  onPressed: widget.onAbrirPerfil,
+                  icon: widget.avatar ?? const Icon(Icons.account_circle),
+                ),
               if (widget.onIrALanding != null)
                 IconButton(
                   key: const Key('boton-ir-landing'),

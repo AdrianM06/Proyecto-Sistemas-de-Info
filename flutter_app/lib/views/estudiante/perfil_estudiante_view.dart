@@ -86,7 +86,7 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     final cambiada = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _DialogoCambiarClave(controller: _controller),
+      builder: (_) => DialogoCambiarClave(controller: _controller),
     );
     if (cambiada == true && mounted) {
       _avisar(
@@ -194,9 +194,15 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
       return;
     }
     if (archivo == null || !mounted) return;
-    final bytes = await archivo.readAsBytes();
-    final tipo = archivo.mimeType ?? FotoPerfilService.tipoDesdeNombre(archivo.name);
-    final error = await _controller.cambiarFoto(bytes, tipo: tipo);
+    String? error;
+    try {
+      final bytes = await archivo.readAsBytes();
+      final tipo =
+          archivo.mimeType ?? FotoPerfilService.tipoDesdeNombre(archivo.name);
+      error = await _controller.cambiarFoto(bytes, tipo: tipo);
+    } catch (e) {
+      error = 'No se pudo leer la imagen. Elige otra e intenta de nuevo.';
+    }
     if (!mounted) return;
     _avisar(
       error ?? '¡Tu foto de perfil se actualizó!',
@@ -292,15 +298,25 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
         Row(
           children: [
             Stack(
+              alignment: Alignment.center,
               children: [
-                AvatarUsuario(
-                  key: const Key('foto-perfil'),
-                  fotoUrl: usuario.fotoUrl,
-                  iniciales: usuario.iniciales,
-                  radio: 40,
-                ),
+                if (_controller.vistaPreviaFoto != null)
+                  CircleAvatar(
+                    key: const Key('foto-perfil'),
+                    radius: 40,
+                    backgroundImage: MemoryImage(_controller.vistaPreviaFoto!),
+                  )
+                else
+                  AvatarUsuario(
+                    key: const Key('foto-perfil'),
+                    fotoUrl: usuario.fotoUrl,
+                    iniciales: usuario.iniciales,
+                    radio: 40,
+                  ),
                 if (_controller.subiendoFoto)
-                  const Positioned.fill(
+                  const SizedBox(
+                    width: 80,
+                    height: 80,
                     child: CircularProgressIndicator(strokeWidth: 3),
                   ),
               ],
@@ -560,17 +576,18 @@ class _AccionConDescripcion extends StatelessWidget {
   }
 }
 
-/// Formulario para cambiar la contraseña.
-class _DialogoCambiarClave extends StatefulWidget {
-  const _DialogoCambiarClave({required this.controller});
+/// Formulario para cambiar la contraseña. También lo usa el perfil del
+/// entrenador (`PerfilCuentaView`).
+class DialogoCambiarClave extends StatefulWidget {
+  const DialogoCambiarClave({super.key, required this.controller});
 
   final PerfilEstudianteController controller;
 
   @override
-  State<_DialogoCambiarClave> createState() => _DialogoCambiarClaveState();
+  State<DialogoCambiarClave> createState() => _DialogoCambiarClaveState();
 }
 
-class _DialogoCambiarClaveState extends State<_DialogoCambiarClave> {
+class _DialogoCambiarClaveState extends State<DialogoCambiarClave> {
   final _actual = TextEditingController();
   final _nueva = TextEditingController();
   final _confirmacion = TextEditingController();
