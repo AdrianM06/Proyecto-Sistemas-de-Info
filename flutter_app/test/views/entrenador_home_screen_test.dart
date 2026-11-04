@@ -6,13 +6,18 @@ import 'package:flutter_app/views/theme/saman_colors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Widget app() {
+  // Lunes 19 de octubre de 2026: Fútbol Masculino entrena los lunes y miércoles.
+  final lunes = DateTime(2026, 10, 19);
+
+  Widget app({DateTime? hoy}) {
+    final dia = hoy ?? lunes;
     return MaterialApp(
       theme: SamanColors.tema(),
       home: EntrenadorHomeScreen(
         controller: EntrenadorController(
-          datos: EntrenadorDemoService(latencia: Duration.zero),
+          datos: EntrenadorDemoService(latencia: Duration.zero, hoy: dia),
           entrenadorId: EntrenadorDemoService.entrenadorDemoId,
+          reloj: () => dia,
         ),
         nombreEntrenador: 'Carlos Gutiérrez',
       ),
@@ -79,5 +84,51 @@ void main() {
     // Deja que el aviso (SnackBar) termine antes de cerrar la prueba.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('en un día sin entrenamiento no se puede tomar asistencia', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+
+    // Martes 20 de octubre: Fútbol Masculino solo entrena lunes y miércoles.
+    await tester.pumpWidget(app(hoy: DateTime(2026, 10, 20)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('boton-tomar-asistencia')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sin-entrenamiento')), findsOneWidget);
+    expect(
+      find.text('No hay entrenamiento pautado para este día'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('guardar-asistencia')))
+          .onPressed,
+      isNull,
+    );
+    expect(find.byKey(const Key('marca-est-01')), findsNothing);
+  });
+
+  testWidgets('en un día de entrenamiento el formulario está habilitado', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+
+    // Miércoles 21 de octubre.
+    await tester.pumpWidget(app(hoy: DateTime(2026, 10, 21)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('boton-tomar-asistencia')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sin-entrenamiento')), findsNothing);
+    expect(find.text('Marcar todos presentes'), findsOneWidget);
   });
 }

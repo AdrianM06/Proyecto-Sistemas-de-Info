@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/horarios.dart';
 import 'conversores.dart';
 
 /// Modelo de un documento de la colección `sports` de Cloud Firestore.
@@ -30,6 +31,13 @@ class Deporte {
   final List<String> horarios;
   final String lugar;
   final List<String> etiquetas;
+
+  /// Días de la semana con entrenamiento (1 = lunes ... 7 = domingo), según
+  /// el texto de los horarios.
+  Set<int> get diasDeEntrenamiento => diasDeEntrenamientoDe(horarios);
+
+  /// `true` si la disciplina entrena el día de [fecha].
+  bool entrenaEl(DateTime fecha) => diasDeEntrenamiento.contains(fecha.weekday);
 
   /// Horarios en una sola línea, por ejemplo "Lun 4:00 pm · Mié 4:00 pm".
   String get horariosTexto =>

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../views/admin/admin_dashboard_view.dart';
 import '../views/admin/crear_deporte_view.dart';
+import '../views/admin/gestion_entrenadores_view.dart';
 import '../views/admin/gestion_estudiantes_view.dart';
 import '../views/admin/registrar_entrenador_view.dart';
 import '../views/entrenador/entrenador_home_screen.dart';
@@ -36,7 +37,8 @@ Widget construirVistaEntrenador(BuildContext context, SesionUsuario sesion) {
 }
 
 Widget construirVistaEstudiante(BuildContext context, SesionUsuario sesion) {
-  return StudentView(
+  return StudentView.conFirebase(
+    estudianteId: sesion.uid,
     avatar: AvatarUsuarioEnVivo(uid: sesion.uid),
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onAbrirPerfil: () => AppRoutes.abrirPerfilEstudiante(context, sesion),
@@ -95,6 +97,16 @@ Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
         navigator.pushNamed(AppRoutes.crearDeporte, arguments: sesion),
     onGestionarEstudiantes: () =>
         navigator.pushNamed(AppRoutes.gestionEstudiantes, arguments: sesion),
+    onGestionarEntrenadores: () =>
+        navigator.pushNamed(AppRoutes.gestionEntrenadores, arguments: sesion),
+  );
+}
+
+Widget construirGestionEntrenadores(BuildContext context, SesionUsuario sesion) {
+  final navigator = Navigator.of(context);
+  return GestionEntrenadoresView.conFirebase(
+    onRegistrarEntrenador: () =>
+        navigator.pushNamed(AppRoutes.registrarEntrenador, arguments: sesion),
   );
 }
 

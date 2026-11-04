@@ -1,0 +1,105 @@
+import 'package:flutter_app/controllers/buscador_controller.dart';
+import 'package:flutter_app/models/deporte.dart';
+import 'package:flutter_app/services/buscador_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Datos con el mismo formato que hay guardado en Firestore: horarios en
+/// texto libre con varios días, etiquetas y un documento vacío.
+class _DatosReales implements BuscadorDataSource {
+  @override
+  Future<List<Deporte>> todosLosDeportes() async => const [
+    Deporte(
+      id: 'fut',
+      nombre: 'Futbol Campo Masculino',
+      disciplina: 'Futbol Campo',
+      cupos: 30,
+      entrenadorId: 'abc',
+      horarios: ['Lun y Mié 12:15 PM - 1:45 PM'],
+      lugar: 'Cancha Futbol Campo',
+      etiquetas: ['Profesional', 'Torneos'],
+    ),
+    Deporte(
+      id: 'aje',
+      nombre: 'Ajedrez',
+      disciplina: 'Ajedrez',
+      cupos: 20,
+      entrenadorId: '',
+      horarios: ['Martes y Jueves 3:00 PM - 5:00 PM'],
+      etiquetas: ['Principiante'],
+    ),
+    Deporte(
+      id: 'vacio',
+      nombre: 'Sin nombre',
+      disciplina: '',
+      cupos: 0,
+      entrenadorId: '',
+      horarios: [''],
+    ),
+  ];
+
+  @override
+  Future<Map<String, int>> inscritosPorDeporte() async => const {};
+}
+
+void main() {
+  late BuscadorController controlador;
+
+  setUp(() async {
+    controlador = BuscadorController(datos: _DatosReales());
+    await controlador.iniciar();
+  });
+
+  tearDown(() => controlador.dispose());
+
+  List<String> ids() => controlador.resultados.map((d) => d.id).toList();
+
+  test('no muestra el documento vacío de la base de datos', () {
+    expect(ids(), ['aje', 'fut']);
+  });
+
+  test('filtrar por el segundo día de un horario encuentra el deporte', () {
+    controlador.elegirDia('Mié');
+    expect(ids(), ['fut']);
+  });
+
+  test('filtrar por el primer día también funciona', () {
+    controlador.elegirDia('Lun');
+    expect(ids(), ['fut']);
+  });
+
+  test('lee los nombres completos de los días', () {
+    controlador.elegirDia('Jue');
+    expect(ids(), ['aje']);
+  });
+
+  test('un día sin entrenamientos no devuelve deportes', () {
+    controlador.elegirDia('Dom');
+    expect(ids(), isEmpty);
+  });
+
+  test('filtra por etiqueta y por disciplina', () {
+    expect(controlador.etiquetas, ['Principiante', 'Profesional', 'Torneos']);
+
+    controlador.elegirEtiqueta('Torneos');
+    expect(ids(), ['fut']);
+
+    controlador.limpiarFiltros();
+    controlador.elegirDisciplina('Ajedrez');
+    expect(ids(), ['aje']);
+  });
+
+  test('la búsqueda de texto también encuentra por etiqueta', () {
+    controlador.buscar('principiante');
+    expect(ids(), ['aje']);
+  });
+
+  test('los filtros se pueden combinar y limpiar', () {
+    controlador.elegirDia('Mié');
+    controlador.elegirEtiqueta('Principiante');
+    expect(ids(), isEmpty);
+
+    controlador.limpiarFiltros();
+    expect(ids(), ['aje', 'fut']);
+    expect(controlador.hayFiltros, isFalse);
+  });
+}

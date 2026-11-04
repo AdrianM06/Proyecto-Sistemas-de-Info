@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/deporte.dart';
 import '../services/buscador_service.dart';
 import '../services/inscripcion_service.dart';
+import '../utils/horarios.dart';
 
 /// Días que se pueden elegir en el filtro del buscador.
 const List<String> diasDeLaSemana = [
@@ -83,9 +84,11 @@ class BuscadorController extends ChangeNotifier {
   Map<String, int> _inscritos = const {};
   List<Deporte> _resultados = const [];
   List<String> _disciplinas = const [];
+  List<String> _etiquetas = const [];
 
   String _texto = '';
   String? _disciplina;
+  String? _etiqueta;
   String? _dia;
   bool _soloConCupos = false;
 
@@ -93,6 +96,7 @@ class BuscadorController extends ChangeNotifier {
   String? get error => _error;
   String get texto => _texto;
   String? get disciplina => _disciplina;
+  String? get etiqueta => _etiqueta;
   String? get dia => _dia;
   bool get soloConCupos => _soloConCupos;
 
@@ -100,6 +104,7 @@ class BuscadorController extends ChangeNotifier {
   bool get hayFiltros =>
       _texto.trim().isNotEmpty ||
       _disciplina != null ||
+      _etiqueta != null ||
       _dia != null ||
       _soloConCupos;
 
@@ -111,6 +116,10 @@ class BuscadorController extends ChangeNotifier {
 
   /// Disciplinas distintas de la oferta, para los chips de filtro.
   List<String> get disciplinas => List.unmodifiable(_disciplinas);
+
+  /// Etiquetas distintas de la oferta (por ejemplo "Torneos"), para los
+  /// chips de filtro.
+  List<String> get etiquetas => List.unmodifiable(_etiquetas);
 
   /// Inscripciones activas del deporte.
   int inscritosDe(Deporte deporte) => _inscritos[deporte.id] ?? 0;
@@ -133,7 +142,12 @@ class BuscadorController extends ChangeNotifier {
         _datos.todosLosDeportes(),
         _datos.inscritosPorDeporte(),
       ]);
-      _todos = datos[0] as List<Deporte>;
+      // Los documentos de `sports` sin nombre son registros vacíos que no
+      // se pueden inscribir; no se muestran.
+      _todos = (datos[0] as List<Deporte>)
+          .where((deporte) => deporte.nombre.trim().isNotEmpty)
+          .where((deporte) => deporte.nombre != 'Sin nombre')
+          .toList();
       _inscritos = datos[1] as Map<String, int>;
       await _cargarMisDeportes();
     } catch (e) {
@@ -144,6 +158,7 @@ class BuscadorController extends ChangeNotifier {
     } finally {
       _cargando = false;
       _calcularDisciplinas();
+      _calcularEtiquetas();
       _filtrar();
       notifyListeners();
     }
@@ -210,6 +225,13 @@ class BuscadorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Elige una etiqueta; elegir la misma que ya está activa la quita.
+  void elegirEtiqueta(String? etiqueta) {
+    _etiqueta = etiqueta == _etiqueta ? null : etiqueta;
+    _filtrar();
+    notifyListeners();
+  }
+
   /// Elige un día de [diasDeLaSemana]; elegir el mismo lo quita.
   void elegirDia(String? dia) {
     _dia = dia == _dia ? null : dia;
@@ -226,6 +248,7 @@ class BuscadorController extends ChangeNotifier {
   void limpiarFiltros() {
     _texto = '';
     _disciplina = null;
+    _etiqueta = null;
     _dia = null;
     _soloConCupos = false;
     _filtrar();
@@ -245,23 +268,43 @@ class BuscadorController extends ChangeNotifier {
     _disciplinas = [for (final clave in claves) unicas[clave]!];
   }
 
+  void _calcularEtiquetas() {
+    final unicas = <String, String>{};
+    for (final deporte in _todos) {
+      for (final etiqueta in deporte.etiquetas) {
+        final limpia = etiqueta.trim();
+        if (limpia.isEmpty) continue;
+        unicas.putIfAbsent(normalizar(limpia), () => limpia);
+      }
+    }
+    final claves = unicas.keys.toList()..sort();
+    _etiquetas = [for (final clave in claves) unicas[clave]!];
+  }
+
   void _filtrar() {
     final texto = normalizar(_texto);
     final disciplina = _disciplina == null ? null : normalizar(_disciplina!);
-    final dia = _dia == null ? null : normalizar(_dia!);
+    final etiqueta = _etiqueta == null ? null : normalizar(_etiqueta!);
+    final dia = _dia == null ? null : numeroDeDia(_dia!);
 
     final filtrados = _todos.where((deporte) {
       if (texto.isNotEmpty &&
           !normalizar(deporte.nombre).contains(texto) &&
           !normalizar(deporte.disciplina).contains(texto) &&
-          !normalizar(deporte.lugar).contains(texto)) {
+          !normalizar(deporte.lugar).contains(texto) &&
+          !deporte.etiquetas.any((e) => normalizar(e).contains(texto))) {
         return false;
       }
       if (disciplina != null && normalizar(deporte.disciplina) != disciplina) {
         return false;
       }
-      if (dia != null &&
-          !deporte.horarios.any((horario) => normalizar(horario).startsWith(dia))) {
+      if (etiqueta != null &&
+          !deporte.etiquetas.any((e) => normalizar(e) == etiqueta)) {
+        return false;
+      }
+      // Los horarios son texto libre ("Lun y Mié 12:15 PM - 1:45 PM"): se
+      // leen todos los días que nombran, no solo el primero.
+      if (dia != null && !deporte.diasDeEntrenamiento.contains(dia)) {
         return false;
       }
       if (_soloConCupos && cuposDisponiblesDe(deporte) == 0) {

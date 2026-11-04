@@ -58,6 +58,7 @@ class TomarAsistenciaScreen extends StatelessWidget {
       builder: (context, _) {
         final deporte = controller.deporteActual;
         final nomina = controller.nomina;
+        final habilitada = controller.hayEntrenamientoEnFecha;
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -137,7 +138,7 @@ class TomarAsistenciaScreen extends StatelessWidget {
                       ),
                     ),
                     TextButton(
-                      onPressed: nomina.isEmpty
+                      onPressed: nomina.isEmpty || !habilitada
                           ? null
                           : () => controller.marcarTodos(presentes: true),
                       child: const Text('Marcar todos presentes'),
@@ -147,7 +148,24 @@ class TomarAsistenciaScreen extends StatelessWidget {
               ),
               if (controller.cargando) const LinearProgressIndicator(),
               Expanded(
-                child: nomina.isEmpty
+                child: !habilitada
+                    ? MensajeVacio(
+                        key: const Key('sin-entrenamiento'),
+                        icono: Icons.event_busy,
+                        titulo: 'No hay entrenamiento pautado para este día',
+                        detalle: controller.horarioSinDias
+                            ? 'El horario de la disciplina no indica los días '
+                                'de entrenamiento. Pide al administrador que '
+                                'lo complete.'
+                            : 'Esta disciplina entrena: '
+                                '${deporte?.horariosTexto ?? ''}. '
+                                'Cambia la fecha a uno de esos días.',
+                        accion: OutlinedButton(
+                          onPressed: () => _elegirFecha(context),
+                          child: const Text('Cambiar fecha'),
+                        ),
+                      )
+                    : nomina.isEmpty
                     ? const MensajeVacio(
                         icono: Icons.groups_outlined,
                         titulo: 'No hay estudiantes inscritos',
@@ -211,7 +229,7 @@ class TomarAsistenciaScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: FilledButton.icon(
                 key: const Key('guardar-asistencia'),
-                onPressed: controller.guardando || nomina.isEmpty
+                onPressed: controller.guardando || nomina.isEmpty || !habilitada
                     ? null
                     : () => _guardar(context),
                 icon: controller.guardando

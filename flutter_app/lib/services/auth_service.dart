@@ -348,11 +348,21 @@ class AuthService {
   /// cerrar la sesión del admin. El perfil se guarda en `users/{uid}` con
   /// `rol: "entrenador"` y, si se indica [deporteId], el entrenador queda
   /// asignado a esa disciplina (`sports/{deporteId}.entrenadorId`).
+  ///
+  /// El [carnet] es obligatorio. Se guarda en `users/{uid}.carnet` y en el
+  /// índice `carnets/{carnet}`, así el entrenador puede iniciar sesión con su
+  /// carnet igual que un estudiante. El índice lo escribe la propia cuenta
+  /// del entrenador (instancia secundaria), porque las reglas de Firestore
+  /// solo dejan crear `carnets/{carnet}` a quien es dueño de ese carnet.
+  ///
+  /// Errores (como [FirebaseAuthException]): `datos-invalidos`,
+  /// `carnet-already-in-use`, `email-already-in-use`, `weak-password`.
   /// Devuelve el uid del entrenador nuevo.
   Future<String> registrarEntrenador({
     required String email,
     required String nombre,
     required String apellido,
+    required String carnet,
     required String password,
     String cedula = '',
     String telefono = '',
@@ -361,6 +371,7 @@ class AuthService {
     final error = AppValidators.validateNombre(nombre) ??
         AppValidators.validateApellido(apellido) ??
         AppValidators.validateEmail(email) ??
+        AppValidators.validateCarnet(carnet) ??
         (cedula.trim().isEmpty ? null : AppValidators.validateCedula(cedula)) ??
         AppValidators.validatePassword(password);
     if (error != null) {
@@ -369,6 +380,14 @@ class AuthService {
 
     final admin = await _verificarAdmin();
     final correo = email.trim().toLowerCase();
+    final carnetLimpio = carnet.trim();
+
+    if ((await _carnets.doc(carnetLimpio).get()).exists) {
+      throw FirebaseAuthException(
+        code: 'carnet-already-in-use',
+        message: 'Ese carnet ya está registrado.',
+      );
+    }
 
     final authRegistro = await _authSecundario();
     final credential = await authRegistro.createUserWithEmailAndPassword(
@@ -392,12 +411,19 @@ class AuthService {
         'cedula': cedula.trim().isEmpty
             ? ''
             : AppValidators.normalizarCedula(cedula),
+        'carnet': carnetLimpio,
         'telefono': telefono.trim(),
         'rol': RolesUsuario.entrenador,
         'estadoActivo': true,
         'creadoPor': admin.uid,
         'fechaRegistro': FieldValue.serverTimestamp(),
       });
+      // Índice para iniciar sesión con el carnet: lo escribe el entrenador
+      // con su propia sesión (la regla exige que `uid` sea el suyo).
+      await FirebaseFirestore.instanceFor(app: authRegistro.app)
+          .collection('carnets')
+          .doc(carnetLimpio)
+          .set({'uid': entrenador.uid, 'email': correo});
       if (deporteId != null && deporteId.isNotEmpty) {
         await _firestore
             .collection('sports')
@@ -405,6 +431,16 @@ class AuthService {
             .update({'entrenadorId': entrenador.uid});
       }
     } catch (e) {
+      // Deja todo como estaba para no dejar un entrenador a medias.
+      try {
+        final indice = await _carnets.doc(carnetLimpio).get();
+        if (indice.data()?['uid'] == entrenador.uid) {
+          await indice.reference.delete();
+        }
+      } catch (_) {}
+      try {
+        await _users.doc(entrenador.uid).delete();
+      } catch (_) {}
       await entrenador.delete();
       rethrow;
     } finally {

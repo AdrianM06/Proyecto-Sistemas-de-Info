@@ -1,6 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app/controllers/inicio_estudiante_controller.dart';
+import 'package:flutter_app/models/deporte.dart';
+import 'package:flutter_app/services/inicio_estudiante_service.dart';
 import 'package:flutter_app/views/student_view.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _Vacio implements InicioEstudianteDataSource {
+  @override
+  Stream<Set<String>> deportesInscritos(String id) => Stream.value({});
+
+  @override
+  Stream<List<Deporte>> deportes() => Stream.value(const []);
+}
+
+InicioEstudianteController _vacio() =>
+    InicioEstudianteController(datos: _Vacio(), estudianteId: 'e1');
 
 void main() {
   testWidgets('el avatar abre el perfil y el botón de salir cierra sesión', (
@@ -15,6 +29,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: StudentView(
+          controller: _vacio(),
           onAbrirPerfil: () => perfilAbierto = true,
           onCerrarSesion: () => sesionCerrada = true,
         ),
@@ -42,6 +57,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: StudentView(
+          controller: _vacio(),
           onAbrirPerfil: () {},
           onCerrarSesion: () {},
           onIrACatalogo: () => catalogo = true,

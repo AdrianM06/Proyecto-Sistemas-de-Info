@@ -167,6 +167,17 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     ),
                 ],
               ),
+              _FilaDeChips(
+                children: [
+                  for (final etiqueta in _controller.etiquetas)
+                    ChoiceChip(
+                      key: Key('etiqueta-$etiqueta'),
+                      label: Text('#$etiqueta'),
+                      selected: _controller.etiqueta == etiqueta,
+                      onSelected: (_) => _controller.elegirEtiqueta(etiqueta),
+                    ),
+                ],
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
                 child: Row(

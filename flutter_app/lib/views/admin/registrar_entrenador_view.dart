@@ -27,6 +27,7 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
   final _nombre = TextEditingController();
   final _apellido = TextEditingController();
   final _correo = TextEditingController();
+  final _carnet = TextEditingController();
   final _cedula = TextEditingController();
   final _telefono = TextEditingController();
   final _clave = TextEditingController();
@@ -40,6 +41,7 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
     _nombre.dispose();
     _apellido.dispose();
     _correo.dispose();
+    _carnet.dispose();
     _cedula.dispose();
     _telefono.dispose();
     _clave.dispose();
@@ -92,6 +94,7 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
         email: _correo.text,
         nombre: _nombre.text,
         apellido: _apellido.text,
+        carnet: _carnet.text,
         password: _clave.text,
         cedula: _cedula.text,
         telefono: _telefono.text,
@@ -100,7 +103,15 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
       final nombreCompleto = '${_nombre.text.trim()} ${_apellido.text.trim()}';
       if (!mounted) return;
       _formKey.currentState?.reset();
-      for (final campo in [_nombre, _apellido, _correo, _cedula, _telefono, _clave]) {
+      for (final campo in [
+        _nombre,
+        _apellido,
+        _correo,
+        _carnet,
+        _cedula,
+        _telefono,
+        _clave,
+      ]) {
         campo.clear();
       }
       setState(() => _deporteId = null);
@@ -148,8 +159,8 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
               children: [
                 const Text(
                   'Los entrenadores solo se registran desde este panel. '
-                  'Comparte con el entrenador su correo y la contraseña '
-                  'temporal para que inicie sesión.',
+                  'Comparte con el entrenador su correo o su carnet y la '
+                  'contraseña temporal para que inicie sesión.',
                   style: TextStyle(color: Colors.black54),
                 ),
                 const SizedBox(height: 20),
@@ -182,6 +193,18 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: _decoracion('Correo electrónico'),
                   validator: _validarCorreo,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const Key('entrenador-carnet'),
+                  controller: _carnet,
+                  keyboardType: TextInputType.number,
+                  decoration: _decoracion(
+                    'Carnet',
+                    ayuda: '11 dígitos, empieza por el año (ej. 20221110045). '
+                        'Con el carnet también inicia sesión.',
+                  ),
+                  validator: AppValidators.validateCarnet,
                 ),
                 const SizedBox(height: 14),
                 Row(

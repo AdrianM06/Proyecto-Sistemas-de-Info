@@ -62,6 +62,13 @@ class EntrenadorController extends ChangeNotifier {
 
   int get inscritos => _nomina.length;
 
+  /// `true` si la disciplina actual entrena el día de la fecha elegida. Solo
+  /// en esos días se puede tomar asistencia.
+  bool get hayEntrenamientoEnFecha => _deporteActual?.entrenaEl(_fecha) ?? false;
+
+  /// `true` si el horario de la disciplina no nombra ningún día.
+  bool get horarioSinDias => (_deporteActual?.diasDeEntrenamiento ?? {}).isEmpty;
+
   /// Cupos libres del deporte actual (nunca negativo).
   int get cuposDisponibles {
     final cupos = _deporteActual?.cupos ?? 0;
@@ -170,6 +177,11 @@ class EntrenadorController extends ChangeNotifier {
     final deporte = _deporteActual;
     if (deporte == null) {
       _error = 'Selecciona una disciplina antes de tomar asistencia.';
+      notifyListeners();
+      return false;
+    }
+    if (!hayEntrenamientoEnFecha) {
+      _error = 'No hay entrenamiento pautado para este día.';
       notifyListeners();
       return false;
     }
