@@ -7,6 +7,8 @@ import '../views/admin/gestion_estudiantes_view.dart';
 import '../views/admin/registrar_entrenador_view.dart';
 import '../views/entrenador/entrenador_home_screen.dart';
 import '../views/estudiante/perfil_estudiante_view.dart';
+import '../views/buscador/buscador_screen.dart';
+import '../views/perfil_cuenta_view.dart';
 import '../views/student_view.dart';
 import '../views/widgets/avatar_usuario.dart';
 import 'app_routes.dart';
@@ -24,6 +26,10 @@ Widget construirVistaEntrenador(BuildContext context, SesionUsuario sesion) {
   return EntrenadorHomeScreen.conFirestore(
     entrenadorId: sesion.uid,
     nombreEntrenador: sesion.nombre,
+    avatar: AvatarUsuarioEnVivo(uid: sesion.uid),
+    onAbrirPerfil: () =>
+        Navigator.of(context)
+            .pushNamed(AppRoutes.perfilEntrenador, arguments: sesion),
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onIrALanding: () => AppRoutes.irALanding(context),
   );
@@ -34,7 +40,24 @@ Widget construirVistaEstudiante(BuildContext context, SesionUsuario sesion) {
     avatar: AvatarUsuarioEnVivo(uid: sesion.uid),
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onAbrirPerfil: () => AppRoutes.abrirPerfilEstudiante(context, sesion),
-    onIrACatalogo: () => Navigator.of(context).pushNamed(AppRoutes.buscador),
+    onIrACatalogo: () =>
+        Navigator.of(context)
+            .pushNamed(AppRoutes.catalogoEstudiante, arguments: sesion),
+    onIrALanding: () => AppRoutes.irALanding(context),
+  );
+}
+
+/// Catálogo del estudiante con sesión: permite inscribirse en una
+/// disciplina. El catálogo público (`/buscador`) solo deja consultar.
+Widget construirCatalogoEstudiante(BuildContext context, SesionUsuario sesion) {
+  return BuscadorScreen.paraEstudiante(estudianteId: sesion.uid);
+}
+
+/// Perfil del entrenador y del administrador. El administrador no ve el
+/// botón para cambiar la contraseña.
+Widget construirPerfilCuenta(BuildContext context, SesionUsuario sesion) {
+  return PerfilCuentaView.conFirebase(
+    onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onIrALanding: () => AppRoutes.irALanding(context),
   );
 }
@@ -50,7 +73,9 @@ Widget construirPerfilEstudiante(BuildContext context, SesionUsuario sesion) {
         navigator.pushReplacementNamed(AppRoutes.estudiante, arguments: sesion);
       }
     },
-    onIrACatalogo: () => Navigator.of(context).pushNamed(AppRoutes.buscador),
+    onIrACatalogo: () =>
+        Navigator.of(context)
+            .pushNamed(AppRoutes.catalogoEstudiante, arguments: sesion),
     onIrALanding: () => AppRoutes.irALanding(context),
   );
 }
@@ -59,6 +84,9 @@ Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
   final navigator = Navigator.of(context);
   return AdminDashboardView(
     nombreAdmin: sesion.nombre,
+    avatar: AvatarUsuarioEnVivo(uid: sesion.uid),
+    onAbrirPerfil: () =>
+        navigator.pushNamed(AppRoutes.perfilAdmin, arguments: sesion),
     onCerrarSesion: () => AppRoutes.cerrarSesion(context),
     onIrALanding: () => AppRoutes.irALanding(context),
     onRegistrarEntrenador: () =>

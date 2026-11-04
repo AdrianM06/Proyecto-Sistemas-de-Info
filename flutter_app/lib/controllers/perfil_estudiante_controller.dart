@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/usuario.dart';
 import '../services/foto_perfil_service.dart';
 import '../services/perfil_estudiante_service.dart';
 import '../utils/app_validators.dart';
@@ -26,6 +27,29 @@ class PerfilEstudianteController extends ChangeNotifier {
 
   bool _subiendoFoto = false;
   bool _guardandoDatos = false;
+  bool _liberado = false;
+  Uint8List? _vistaPreviaFoto;
+
+  /// Foto elegida mientras se sube: la pantalla la muestra de inmediato, sin
+  /// esperar a que Storage responda.
+  Uint8List? get vistaPreviaFoto => _vistaPreviaFoto;
+
+  /// `true` si la cuenta es de administrador. Los administradores no pueden
+  /// cambiar su contraseña desde la app.
+  bool get esAdmin => _perfil?.usuario.rol == RolUsuario.admin;
+
+  @override
+  void dispose() {
+    _liberado = true;
+    super.dispose();
+  }
+
+  /// Una subida o consulta puede terminar cuando la pantalla ya se cerró;
+  /// avisar a un notificador liberado lanzaría un error.
+  @override
+  void notifyListeners() {
+    if (!_liberado) super.notifyListeners();
+  }
 
   bool get cargando => _cargando;
   String? get error => _error;
@@ -78,6 +102,11 @@ class PerfilEstudianteController extends ChangeNotifier {
     required String nueva,
     required String confirmacion,
   }) async {
+    if (esAdmin) {
+      _errorClave = 'Los administradores no pueden cambiar la contraseña.';
+      notifyListeners();
+      return false;
+    }
     final errorValidacion = validarCambioDeClave(
       actual: actual,
       nueva: nueva,
@@ -179,13 +208,14 @@ class PerfilEstudianteController extends ChangeNotifier {
     if (error != null) return error;
 
     _subiendoFoto = true;
+    _vistaPreviaFoto = bytes;
     notifyListeners();
     try {
       final url = await _datos.subirFotoPerfil(bytes, tipo: tipo);
       _perfil = PerfilEstudiante(
-        usuario: perfil.usuario.copiarCon(fotoUrl: url),
-        saldo: perfil.saldo,
-        disciplinas: perfil.disciplinas,
+        usuario: (_perfil ?? perfil).usuario.copiarCon(fotoUrl: url),
+        saldo: (_perfil ?? perfil).saldo,
+        disciplinas: (_perfil ?? perfil).disciplinas,
       );
       return null;
     } on FotoPerfilException catch (e) {
@@ -194,6 +224,7 @@ class PerfilEstudianteController extends ChangeNotifier {
       return 'No se pudo subir la foto. Intenta de nuevo.';
     } finally {
       _subiendoFoto = false;
+      _vistaPreviaFoto = null;
       notifyListeners();
     }
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,6 +29,9 @@ class FotoPerfilService {
 
   /// Tamaño máximo de la foto (igual que en `storage.rules`).
   static const int tamanoMaximo = 2 * 1024 * 1024;
+
+  /// Tiempo máximo de cada paso de la subida (lectura, Storage, Firestore).
+  static const Duration _espera = Duration(seconds: 30);
 
   static const Map<String, String> _extensiones = {
     'image/jpeg': 'jpg',
@@ -64,29 +68,45 @@ class FotoPerfilService {
     if (error != null) throw FotoPerfilException(error);
 
     final usuario = FirestoreService.instance.users.doc(uid);
-    final anterior = (await usuario.get()).data()?['fotoUrl'];
-
-    final nombre =
-        'perfil_${DateTime.now().millisecondsSinceEpoch}.${_extensiones[tipo]}';
-    final referencia = FirebaseStorage.instance.ref('usuarios/$uid/$nombre');
+    final String url;
+    final Object? anterior;
     try {
-      await referencia.putData(
+      anterior = (await usuario.get().timeout(_espera)).data()?['fotoUrl'];
+
+      final nombre =
+          'perfil_${DateTime.now().millisecondsSinceEpoch}.${_extensiones[tipo]}';
+      final referencia = FirebaseStorage.instance.ref('usuarios/$uid/$nombre');
+      final tarea = referencia.putData(
         bytes,
         SettableMetadata(contentType: tipo, cacheControl: 'public,max-age=86400'),
       );
+      try {
+        await tarea.timeout(_espera);
+      } on TimeoutException {
+        // Sin esto la subida seguiría en segundo plano y la pantalla
+        // quedaría esperando para siempre.
+        try {
+          await tarea.cancel();
+        } catch (_) {}
+        rethrow;
+      }
+      url = await referencia.getDownloadURL().timeout(_espera);
+
+      await usuario.update({
+        'fotoUrl': url,
+        'fotoActualizada': FieldValue.serverTimestamp(),
+      });
+    } on TimeoutException {
+      throw const FotoPerfilException(
+        'La subida tardó demasiado. Revisa tu conexión e intenta de nuevo.',
+      );
     } on FirebaseException catch (e) {
       throw FotoPerfilException(
-        e.code == 'unauthorized'
+        e.code == 'unauthorized' || e.code == 'permission-denied'
             ? 'No tienes permiso para cambiar esta foto.'
             : 'No se pudo subir la foto. Revisa tu conexión e intenta de nuevo.',
       );
     }
-    final url = await referencia.getDownloadURL();
-
-    await usuario.update({
-      'fotoUrl': url,
-      'fotoActualizada': FieldValue.serverTimestamp(),
-    });
 
     if (anterior is String && anterior.isNotEmpty) {
       try {

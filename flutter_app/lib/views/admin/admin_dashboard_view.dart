@@ -14,6 +14,8 @@ class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({
     super.key,
     this.nombreAdmin = 'Administrador',
+    this.avatar,
+    this.onAbrirPerfil,
     this.onCerrarSesion,
     this.onIrALanding,
     this.onRegistrarEntrenador,
@@ -22,6 +24,12 @@ class AdminDashboardView extends StatelessWidget {
   });
 
   final String nombreAdmin;
+
+  /// Foto de perfil de la barra superior. Si es `null` se ve un ícono.
+  final Widget? avatar;
+
+  /// Abre el perfil del administrador (solo foto; sin cambio de contraseña).
+  final VoidCallback? onAbrirPerfil;
   final VoidCallback? onCerrarSesion;
 
   /// Botón "Página principal": vuelve a la Landing sin cerrar la sesión.
@@ -38,6 +46,13 @@ class AdminDashboardView extends StatelessWidget {
         backgroundColor: _azul,
         foregroundColor: Colors.white,
         actions: [
+          if (onAbrirPerfil != null)
+            IconButton(
+              key: const Key('boton-perfil'),
+              tooltip: 'Mi perfil',
+              onPressed: onAbrirPerfil,
+              icon: avatar ?? const Icon(Icons.account_circle),
+            ),
           if (onIrALanding != null)
             IconButton(
               key: const Key('boton-ir-landing'),

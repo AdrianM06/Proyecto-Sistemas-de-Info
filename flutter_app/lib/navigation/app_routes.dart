@@ -26,6 +26,9 @@ class AppRoutes {
   static const String entrenador = '/entrenador';
   static const String estudiante = '/estudiante';
   static const String perfilEstudiante = '/estudiante/perfil';
+  static const String catalogoEstudiante = '/estudiante/catalogo';
+  static const String perfilEntrenador = '/entrenador/perfil';
+  static const String perfilAdmin = '/admin/perfil';
   static const String buscador = '/buscador';
   static const String perfil = '/perfil';
   static const String adminDashboard = '/admin/dashboard';
@@ -62,10 +65,8 @@ class AppRoutes {
   /// historial, así funciona igual si se entró directo por la URL o si se
   /// recargó la página. Si hay sesión abierta, se mantiene.
   static Future<void> irALanding(BuildContext context) {
-    return Navigator.of(context).pushNamedAndRemoveUntil(
-      landing,
-      (route) => false,
-    );
+    return Navigator.of(context)
+        .pushNamedAndRemoveUntil(landing, (route) => false);
   }
 
   /// Cierra la sesión y lleva de inmediato al inicio de sesión. Lo usan
@@ -122,6 +123,26 @@ class AppRoutes {
             constructor: construirPerfilEstudiante,
           ),
         );
+      case catalogoEstudiante:
+        return _ruta(
+          settings,
+          (_) => RutaProtegida(
+            rolRequerido: RolesUsuario.estudiante,
+            sesionInicial: argumentos is SesionUsuario ? argumentos : null,
+            constructor: construirCatalogoEstudiante,
+          ),
+        );
+      case perfilEntrenador:
+        return _ruta(
+          settings,
+          (_) => RutaProtegida(
+            rolRequerido: RolesUsuario.entrenador,
+            sesionInicial: argumentos is SesionUsuario ? argumentos : null,
+            constructor: construirPerfilCuenta,
+          ),
+        );
+      case perfilAdmin:
+        return _rutaAdmin(settings, construirPerfilCuenta);
       case buscador:
         return _ruta(settings, (_) => BuscadorScreen.conFirestore());
       case perfil:
@@ -202,11 +223,8 @@ class _RutaProtegidaState extends State<RutaProtegida> {
   void _redirigir(String ruta, {SesionUsuario? sesion}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        ruta,
-        (route) => false,
-        arguments: sesion,
-      );
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(ruta, (route) => false, arguments: sesion);
     });
   }
 

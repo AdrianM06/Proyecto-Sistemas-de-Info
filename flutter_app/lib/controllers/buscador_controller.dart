@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/deporte.dart';
 import '../services/buscador_service.dart';
+import '../services/inscripcion_service.dart';
 
 /// Días que se pueden elegir en el filtro del buscador.
 const List<String> diasDeLaSemana = [
@@ -48,9 +49,31 @@ String normalizar(String texto) {
 /// aplica la búsqueda y los filtros en memoria. La pantalla solo lee su
 /// estado y se redibuja cuando el controlador llama a `notifyListeners()`.
 class BuscadorController extends ChangeNotifier {
-  BuscadorController({required BuscadorDataSource datos}) : _datos = datos;
+  /// Con [inscripciones] y [estudianteId] el buscador deja que el estudiante
+  /// se inscriba en una disciplina; sin ellos solo muestra la oferta.
+  BuscadorController({
+    required BuscadorDataSource datos,
+    InscripcionesDataSource? inscripciones,
+    String? estudianteId,
+  })  : _datos = datos,
+        _inscripciones = inscripciones,
+        _estudianteId = estudianteId;
 
   final BuscadorDataSource _datos;
+  final InscripcionesDataSource? _inscripciones;
+  final String? _estudianteId;
+
+  Set<String> _misDeportes = const {};
+  String? _inscribiendo;
+
+  /// `true` si el estudiante puede inscribirse desde el buscador.
+  bool get permiteInscribir => _inscripciones != null && _estudianteId != null;
+
+  /// `true` si el estudiante ya tiene una inscripción activa en el deporte.
+  bool estaInscrito(Deporte deporte) => _misDeportes.contains(deporte.id);
+
+  /// Id del deporte que se está inscribiendo ahora, si hay uno.
+  String? get inscribiendo => _inscribiendo;
 
   // ---------------------------------------------------------------- estado
 
@@ -112,6 +135,7 @@ class BuscadorController extends ChangeNotifier {
       ]);
       _todos = datos[0] as List<Deporte>;
       _inscritos = datos[1] as Map<String, int>;
+      await _cargarMisDeportes();
     } catch (e) {
       _todos = const [];
       _inscritos = const {};
@@ -127,6 +151,51 @@ class BuscadorController extends ChangeNotifier {
 
   /// Vuelve a pedir la oferta deportiva.
   Future<void> recargar() => iniciar();
+
+  /// Inscribe al estudiante en [deporte]. Devuelve el mensaje de error o
+  /// `null` si quedó inscrito.
+  Future<String?> inscribirse(Deporte deporte) async {
+    final inscripciones = _inscripciones;
+    final estudianteId = _estudianteId;
+    if (inscripciones == null || estudianteId == null) {
+      return 'Inicia sesión como estudiante para inscribirte.';
+    }
+    if (_inscribiendo != null) return null;
+    if (estaInscrito(deporte)) return 'Ya estás inscrito en ${deporte.nombre}.';
+
+    _inscribiendo = deporte.id;
+    notifyListeners();
+    try {
+      await inscripciones.inscribir(
+        estudianteId: estudianteId,
+        deporte: deporte,
+      );
+      _misDeportes = {..._misDeportes, deporte.id};
+      _inscritos = {..._inscritos, deporte.id: inscritosDe(deporte) + 1};
+      _filtrar();
+      return null;
+    } on InscripcionException catch (e) {
+      return e.mensaje;
+    } catch (e) {
+      return 'No se pudo completar la inscripción. Intenta de nuevo.';
+    } finally {
+      _inscribiendo = null;
+      notifyListeners();
+    }
+  }
+
+  /// Carga los deportes donde el estudiante ya está inscrito. Si falla, el
+  /// catálogo se muestra igual y el servicio revisa al inscribirse.
+  Future<void> _cargarMisDeportes() async {
+    final inscripciones = _inscripciones;
+    final estudianteId = _estudianteId;
+    if (inscripciones == null || estudianteId == null) return;
+    try {
+      _misDeportes = await inscripciones.deportesInscritos(estudianteId);
+    } catch (_) {
+      _misDeportes = const {};
+    }
+  }
 
   void buscar(String texto) {
     _texto = texto;

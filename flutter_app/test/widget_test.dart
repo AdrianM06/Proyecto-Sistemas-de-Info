@@ -108,11 +108,14 @@ void main() {
     expect(find.text('Entrar al panel'), findsOneWidget);
     // En modo administrador no se ofrece crear cuenta.
     expect(find.byKey(const Key('boton-crear-cuenta')), findsNothing);
+    // Tampoco se ofrece recuperar o cambiar la contraseña.
+    expect(find.byKey(const Key('enlace-recuperar-clave')), findsNothing);
 
     await tester.tap(find.byKey(const Key('boton-modo-admin')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('aviso-modo-admin')), findsNothing);
     expect(find.byKey(const Key('boton-crear-cuenta')), findsOneWidget);
+    expect(find.byKey(const Key('enlace-recuperar-clave')), findsOneWidget);
   });
 
   testWidgets('el ojo del login muestra y oculta la contraseña', (tester) async {

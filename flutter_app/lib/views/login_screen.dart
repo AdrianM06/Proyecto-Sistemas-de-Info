@@ -435,7 +435,10 @@ class _LoginFormState extends State<_LoginForm> {
             ),
           ),
           const SizedBox(height: 4),
+          // El administrador no recupera ni cambia su contraseña desde la app.
+          if (!_modoAdmin)
           Wrap(
+            key: const Key('enlace-recuperar-clave'),
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text(
