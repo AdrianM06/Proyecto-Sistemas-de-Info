@@ -18,33 +18,39 @@ class AvatarUsuario extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = fotoUrl ?? '';
-    if (url.isNotEmpty) {
-      return CircleAvatar(
-        radius: radio,
-        backgroundColor: const Color(0xFFE0E0E0),
-        // En la web la imagen se dibuja con un <img>, así no depende de la
-        // configuración CORS del bucket de Storage.
-        backgroundImage: NetworkImage(
-          url,
-          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-        ),
-        onBackgroundImageError: (_, _) {},
-      );
-    }
     return CircleAvatar(
       radius: radio,
       backgroundColor: const Color(0xFFE0E0E0),
-      child: iniciales.isEmpty
-          ? Icon(Icons.person, color: Colors.grey, size: radio * 1.4)
-          : Text(
-              iniciales,
-              style: TextStyle(
-                color: const Color(0xFF003087),
-                fontWeight: FontWeight.w700,
-                fontSize: radio * 0.8,
+      child: url.isEmpty
+          ? _iniciales()
+          : ClipOval(
+              // En la web la imagen se dibuja con un <img>, así no depende de
+              // la configuración CORS del bucket de Storage. Debe ser un
+              // widget Image: pintarla como `backgroundImage` del CircleAvatar
+              // lanza un error en cada fotograma y deja la pantalla a medias.
+              child: Image.network(
+                url,
+                width: radio * 2,
+                height: radio * 2,
+                fit: BoxFit.cover,
+                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                errorBuilder: (context, error, stackTrace) => _iniciales(),
               ),
             ),
     );
+  }
+
+  Widget _iniciales() {
+    return iniciales.isEmpty
+        ? Icon(Icons.person, color: Colors.grey, size: radio * 1.4)
+        : Text(
+            iniciales,
+            style: TextStyle(
+              color: const Color(0xFF003087),
+              fontWeight: FontWeight.w700,
+              fontSize: radio * 0.8,
+            ),
+          );
   }
 }
 
