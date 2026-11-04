@@ -21,6 +21,7 @@ class AdminDashboardView extends StatelessWidget {
     this.onRegistrarEntrenador,
     this.onCrearDeporte,
     this.onGestionarEstudiantes,
+    this.onGestionarEntrenadores,
   });
 
   final String nombreAdmin;
@@ -37,6 +38,9 @@ class AdminDashboardView extends StatelessWidget {
   final VoidCallback? onRegistrarEntrenador;
   final VoidCallback? onCrearDeporte;
   final VoidCallback? onGestionarEstudiantes;
+
+  /// Abre la lista de entrenadores para asignar o revocar disciplinas.
+  final VoidCallback? onGestionarEntrenadores;
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +98,12 @@ class AdminDashboardView extends StatelessWidget {
                   icono: Icons.person_add_alt_1,
                   titulo: 'Registrar entrenador',
                   onTap: onRegistrarEntrenador,
+                ),
+                _AccionAdmin(
+                  key: const Key('admin-gestionar-entrenadores'),
+                  icono: Icons.manage_accounts_outlined,
+                  titulo: 'Gestionar entrenadores',
+                  onTap: onGestionarEntrenadores,
                 ),
                 _AccionAdmin(
                   key: const Key('admin-crear-deporte'),
