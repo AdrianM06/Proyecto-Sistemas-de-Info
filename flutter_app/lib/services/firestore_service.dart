@@ -47,3 +47,4 @@ class FirestoreService {
 CollectionReference> reviewsOf(String sportId) {
     return sports.doc(sportId).collection('reviews');
   }
+}
