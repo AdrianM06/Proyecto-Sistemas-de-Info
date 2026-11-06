@@ -5,9 +5,9 @@ import 'firestore_service.dart';
 /// Interfaz para abstraer la fuente de datos de las reseñas.
 abstract class ResenasDataSource {
   /// Obtiene un flujo en tiempo real de las resenas de un deporte.
-  Stream<List<Resena>> reseñasDe(String deporteId);
+  Stream<List<Resena>> resenasDe(String deporteId);
   
-  /// Guarda una nueva reseña en la base de datos.
+  /// Guarda una nueva resena en la base de datos.
   Future<void> agregarResena(String deporteId, Resena resena);
 }
 
