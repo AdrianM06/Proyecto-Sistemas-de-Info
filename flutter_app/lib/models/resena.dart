@@ -34,8 +34,15 @@ class Resena {
   }
 
   /// Crea una [Resena] directamente desde un documento de Firestore.
-  factory Resena.fromFirestore(DocumentSnapshot> doc) {
-    return Resena.fromJson(doc.data() ?? const {}, id: doc.id);
+  factory Resena.fromFirestore(DocumentSnapshot doc) {
+  final data = doc.data() as Map<String, dynamic>;
+  return Resena(
+    id: doc.id,
+    estudianteId: data['estudianteId'] ?? '',
+    calificacion: data['calificacion'] ?? 5,
+    comentario: data['comentario'] ?? '',
+    fecha: (data['fecha'] as Timestamp).toDate(),
+   );
   }
 
   /// Convierte el objeto a un mapa para guardarlo en la base de datos.
