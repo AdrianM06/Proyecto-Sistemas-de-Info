@@ -43,3 +43,7 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get cedulas =>
       db.collection('cedulas');
 }
+
+CollectionReference> reviewsOf(String sportId) {
+    return sports.doc(sportId).collection('reviews');
+  }
