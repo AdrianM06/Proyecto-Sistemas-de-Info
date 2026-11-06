@@ -33,13 +33,13 @@ class DetalleDeporteController extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    _suscripcionResenas = _datos.reseñasDe(deporteId).listen(
+    _suscripcionResenas = _datos.resenasDe(deporteId).listen(
       (lista) {
         _resenas = lista;
         notifyListeners();
       },
       onError: (e) {
-        _error = 'No se pudieron cargar las reseñas.';
+        _error = 'No se pudieron cargar las resenas.';
         notifyListeners();
       },
     );
@@ -67,7 +67,7 @@ class DetalleDeporteController extends ChangeNotifier {
           .get();
 
       if (inscripciones.docs.isEmpty) {
-        _error = 'Debes estar inscrito en esta disciplina para dejar una reseña.';
+        _error = 'Debes estar inscrito en esta disciplina para dejar una resena.';
         return false;
       }
 
@@ -84,7 +84,7 @@ class DetalleDeporteController extends ChangeNotifier {
       return true;
 
     } catch (e) {
-      _error = 'Error al publicar la reseña. Intenta de nuevo.';
+      _error = 'Error al publicar la resena. Intenta de nuevo.';
       return false;
     } finally {
       _enviando = false;
