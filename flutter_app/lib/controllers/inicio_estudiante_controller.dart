@@ -109,3 +109,20 @@ class InicioEstudianteController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+// Dentro del ListView o GridView de tu catálogo:
+TarjetaDeporte(
+  deporte: deporte,
+  cuposDisponibles: deporte.cupos,
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetalleDeporteView(
+          deporte: deporte, 
+          estudianteId: controladorInicio.estudianteId, // El uid actual
+        ),
+      ),
+    );
+  },
+)
