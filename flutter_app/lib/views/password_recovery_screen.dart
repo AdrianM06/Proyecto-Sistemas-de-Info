@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/utils/app_validators.dart';
 
+import '../utils/imagenes.dart';
 import 'widgets/boton_volver_inicio.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
@@ -80,6 +81,7 @@ class _SportsLogo extends StatelessWidget {
           'assets/images/unimet_sports_logo.png',
           width: 184,
           height: 68,
+          cacheWidth: pixelesFisicos(context, 184),
           fit: BoxFit.cover,
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
+import '../utils/imagenes.dart';
 
 // Paleta universitaria (la misma del login).
 const _azul = Color(0xFF003B82);
@@ -249,6 +250,7 @@ class _BarraNavegacion extends StatelessWidget {
           Image.asset(
             'assets/images/unimet_sports_logo.png',
             height: 40,
+            cacheHeight: pixelesFisicos(context, 40),
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) =>
                 const Icon(Icons.sports, color: _naranja, size: 36),
