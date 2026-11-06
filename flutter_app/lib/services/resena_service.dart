@@ -4,7 +4,7 @@ import 'firestore_service.dart';
 
 /// Interfaz para abstraer la fuente de datos de las reseñas.
 abstract class ResenasDataSource {
-  /// Obtiene un flujo en tiempo real de las reseñas de un deporte.
+  /// Obtiene un flujo en tiempo real de las resenas de un deporte.
   Stream<List<Resena>> reseñasDe(String deporteId);
   
   /// Guarda una nueva reseña en la base de datos.
@@ -19,7 +19,7 @@ class ResenasService implements ResenasDataSource {
   final FirestoreService _firestore;
 
   @override
-  Stream<List<Resena>> reseñasDe(String deporteId) {
+  Stream<List<Resena>> resenasDe(String deporteId) {
     // Usamos el método reviewsOf que creamos en la Fase 2
     return _firestore
         .reviewsOf(deporteId)
