@@ -27,7 +27,7 @@ class DetalleDeporteController extends ChangeNotifier {
   bool get enviando => _enviando;
   String? get error => _error;
 
-  /// Inicia la escucha en tiempo real de las reseñas.
+  /// Inicia la escucha en tiempo real de las resenas.
   void iniciar() {
     _suscripcionResenas?.cancel();
     _error = null;
@@ -45,7 +45,7 @@ class DetalleDeporteController extends ChangeNotifier {
     );
   }
 
-  /// Lógica de negocio: Verifica inscripción y publica la reseña.
+  /// Lógica de negocio: Verifica inscripción y publica la resena.
   Future<bool> publicarResena(int calificacion, String comentario) async {
     if (comentario.trim().isEmpty) {
       _error = 'El comentario no puede estar vacío.';
