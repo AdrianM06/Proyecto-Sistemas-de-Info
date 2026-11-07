@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/imagenes.dart';
+
 const _azul = Color(0xFF003087);
 const _naranja = Color(0xFFFF8C2A);
 
@@ -66,6 +68,7 @@ class EstudianteScaffold extends StatelessWidget {
         title: Image.asset(
           'assets/images/unimet_sports_logo.png',
           height: 40,
+          cacheHeight: pixelesFisicos(context, 40),
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => const Text(
             'UNIMET SPORTS',
@@ -150,6 +153,7 @@ class _MenuEstudiante extends StatelessWidget {
                   child: Image.asset(
                     'assets/images/unimet_sports_logo.png',
                     height: 44,
+                    cacheHeight: pixelesFisicos(context, 44),
                     errorBuilder: (context, error, stackTrace) =>
                         const Icon(Icons.sports, color: _naranja),
                   ),

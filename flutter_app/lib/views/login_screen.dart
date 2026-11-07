@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
 import '../utils/app_validators.dart';
+import '../utils/imagenes.dart';
 import 'widgets/boton_volver_inicio.dart';
 
 /// Pantalla de inicio de sesión (ruta `/login`).
@@ -124,6 +125,7 @@ class _SportsHero extends StatelessWidget {
             child: Image.asset(
               'assets/images/unimet_sports_logo.png',
               height: 184,
+              cacheHeight: pixelesFisicos(context, 184),
               fit: BoxFit.contain,
             ),
           ),
