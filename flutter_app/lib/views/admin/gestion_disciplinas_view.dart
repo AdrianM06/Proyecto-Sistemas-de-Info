@@ -51,7 +51,12 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
   final _busqueda = TextEditingController();
   String _texto = '';
 
-  /// Ids de las disciplinas que se están eliminando.
+  /// Ids de las disciplinas en proceso de eliminación (revisando
+  /// inscripciones, esperando confirmación o borrando): su botón se desactiva.
+  final Set<String> _ocupadas = {};
+
+  /// Ids de las disciplinas que se están borrando en Firestore (muestran un
+  /// indicador de carga).
   final Set<String> _eliminando = {};
 
   @override
@@ -87,8 +92,8 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
 
   Future<void> _eliminar(Deporte deporte) async {
     final baja = widget.baja;
-    if (baja == null || _eliminando.contains(deporte.id)) return;
-    setState(() => _eliminando.add(deporte.id));
+    if (baja == null || _ocupadas.contains(deporte.id)) return;
+    setState(() => _ocupadas.add(deporte.id));
     try {
       int? conteo;
       try {
@@ -152,6 +157,7 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
       );
       if (confirmar != true || !mounted) return;
 
+      setState(() => _eliminando.add(deporte.id));
       try {
         await baja.eliminar(deporte.id);
         if (mounted) {
@@ -171,7 +177,12 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
         }
       }
     } finally {
-      if (mounted) setState(() => _eliminando.remove(deporte.id));
+      if (mounted) {
+        setState(() {
+          _ocupadas.remove(deporte.id);
+          _eliminando.remove(deporte.id);
+        });
+      }
     }
   }
 
@@ -334,7 +345,9 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
                       : IconButton(
                           key: Key('eliminar-disciplina-${deporte.id}'),
                           tooltip: 'Eliminar disciplina',
-                          onPressed: () => _eliminar(deporte),
+                          onPressed: _ocupadas.contains(deporte.id)
+                              ? null
+                              : () => _eliminar(deporte),
                           icon: const Icon(Icons.delete_outline, color: _rojo),
                         ),
               ],

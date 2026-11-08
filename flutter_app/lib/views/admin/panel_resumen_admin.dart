@@ -39,7 +39,11 @@ class _PanelResumenAdminState extends State<PanelResumenAdmin> {
     return resumen;
   }
 
-  void _actualizar() => setState(() => _resumen = _pedir());
+  void _actualizar() {
+    setState(() {
+      _resumen = _pedir();
+    });
+  }
 
   static String _hora(DateTime fecha) {
     String dos(int n) => n.toString().padLeft(2, '0');
