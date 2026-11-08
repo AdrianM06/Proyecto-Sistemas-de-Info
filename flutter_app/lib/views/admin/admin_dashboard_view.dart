@@ -22,6 +22,7 @@ class AdminDashboardView extends StatelessWidget {
     this.onCrearDeporte,
     this.onGestionarEstudiantes,
     this.onGestionarEntrenadores,
+    this.onEditarDeporte,
   });
 
   final String nombreAdmin;
@@ -41,6 +42,10 @@ class AdminDashboardView extends StatelessWidget {
 
   /// Abre la lista de entrenadores para asignar o revocar disciplinas.
   final VoidCallback? onGestionarEntrenadores;
+
+  /// Abre el formulario para editar una disciplina (horarios, entrenadores,
+  /// cupos...). Si es `null`, no aparece el botón de editar.
+  final void Function(Deporte deporte)? onEditarDeporte;
 
   @override
   Widget build(BuildContext context) {
@@ -167,17 +172,26 @@ class AdminDashboardView extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            deporte.nombre,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              deporte.nombre,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           Chip(
                             label: Text('${deporte.cupos} Cupos'),
                             backgroundColor: Colors.blue.shade50,
                           ),
+                          if (onEditarDeporte != null)
+                            IconButton(
+                              key: Key('editar-deporte-${deporte.id}'),
+                              tooltip: 'Editar disciplina',
+                              onPressed: () => onEditarDeporte!(deporte),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
                         ],
                       ),
                       if (deporte.disciplina.isNotEmpty)
@@ -197,6 +211,19 @@ class AdminDashboardView extends StatelessWidget {
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.sports_outlined,
+                              color: _azul, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Entrenadores: ${deporte.entrenadoresTexto}',
                             ),
                           ),
                         ],

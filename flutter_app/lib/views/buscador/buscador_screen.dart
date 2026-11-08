@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../controllers/buscador_controller.dart';
+import '../../models/bloque_horario.dart';
 import '../../models/deporte.dart';
 import '../../services/buscador_service.dart';
 import '../../services/inscripcion_service.dart';
@@ -139,6 +140,18 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     selected: _controller.soloConCupos,
                     onSelected: _controller.cambiarSoloConCupos,
                   ),
+                  FilterChip(
+                    key: const Key('filtro-horas'),
+                    avatar: const Icon(Icons.schedule, size: 18),
+                    label: Text(
+                      _controller.filtraPorHoras
+                          ? '${BloqueHorario.horaTexto(_controller.desde!)} – '
+                                '${BloqueHorario.horaTexto(_controller.hasta!)}'
+                          : 'Horario',
+                    ),
+                    selected: _controller.filtraPorHoras,
+                    onSelected: (_) => _elegirRangoHoras(),
+                  ),
                   for (final dia in diasDeLaSemana)
                     ChoiceChip(
                       key: Key('dia-$dia'),
@@ -233,6 +246,87 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
+  /// Hoja para elegir la franja horaria (por ejemplo, de 2:00 pm a 6:00 pm).
+  /// Se combina con el filtro por día.
+  Future<void> _elegirRangoHoras() async {
+    const primera = BuscadorController.primeraHora;
+    const ultima = BuscadorController.ultimaHora;
+    var rango = RangeValues(
+      (_controller.desde ?? primera).toDouble(),
+      (_controller.hasta ?? ultima).toDouble(),
+    );
+    final resultado = await showModalBottomSheet<RangeValues?>(
+      context: context,
+      showDragHandle: true,
+      builder: (contextoHoja) => StatefulBuilder(
+        builder: (contextoHoja, actualizar) => SafeArea(
+          child: Padding(
+            key: const Key('hoja-rango-horas'),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '¿A qué hora puedes entrenar?',
+                  style: Theme.of(contextoHoja).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Entre ${BloqueHorario.horaTexto(rango.start.round())} y '
+                  '${BloqueHorario.horaTexto(rango.end.round())}',
+                  key: const Key('texto-rango-horas'),
+                ),
+                RangeSlider(
+                  key: const Key('slider-rango-horas'),
+                  min: primera.toDouble(),
+                  max: ultima.toDouble(),
+                  divisions: (ultima - primera) ~/ 30,
+                  values: rango,
+                  labels: RangeLabels(
+                    BloqueHorario.horaTexto(rango.start.round()),
+                    BloqueHorario.horaTexto(rango.end.round()),
+                  ),
+                  onChanged: (valores) {
+                    if (valores.end - valores.start < 30) return;
+                    actualizar(() => rango = valores);
+                  },
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      key: const Key('quitar-rango-horas'),
+                      onPressed: () => Navigator.of(
+                        contextoHoja,
+                      ).pop(const RangeValues(-1, -1)),
+                      child: const Text('Quitar filtro'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      key: const Key('aplicar-rango-horas'),
+                      onPressed: () => Navigator.of(contextoHoja).pop(rango),
+                      child: const Text('Aplicar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (resultado == null || !mounted) return;
+    if (resultado.start < 0) {
+      _controller.elegirRangoHoras(null, null);
+    } else {
+      _controller.elegirRangoHoras(
+        resultado.start.round(),
+        resultado.end.round(),
+      );
+    }
+  }
+
   /// Abre el detalle de la disciplina con sus reseñas y su promedio.
   void _abrirResenas(Deporte deporte) {
     final pagina = widget.paginaDeResenas ??
@@ -317,6 +411,16 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                             ],
                           ),
                         ),
+                    const SizedBox(height: 12),
+                    _Subtitulo(
+                      deporte.entrenadoresIds.length > 1
+                          ? 'Entrenadores'
+                          : 'Entrenador',
+                    ),
+                    Text(
+                      deporte.entrenadoresTexto,
+                      key: const Key('entrenadores-detalle'),
+                    ),
                     const SizedBox(height: 12),
                     const _Subtitulo('Lugar'),
                     Text(

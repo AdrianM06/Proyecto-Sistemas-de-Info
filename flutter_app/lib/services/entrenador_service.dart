@@ -12,7 +12,7 @@ import 'firestore_service.dart';
 /// Así se puede usar la implementación real ([EntrenadorService]) o una de
 /// prueba ([EntrenadorDemoService]) sin cambiar el controlador ni las vistas.
 abstract class EntrenadorDataSource {
-  /// Deportes cuyo `entrenadorId` es el del entrenador.
+  /// Deportes cuyo `entrenadoresIds` incluye al entrenador.
   Future<List<Deporte>> deportesDelEntrenador(String entrenadorId);
 
   /// Estudiantes con inscripción `activa` en el deporte.
@@ -45,10 +45,8 @@ class EntrenadorService implements EntrenadorDataSource {
 
   @override
   Future<List<Deporte>> deportesDelEntrenador(String entrenadorId) async {
-    final resultado = await _firestore.sports
-        .where('entrenadorId', isEqualTo: entrenadorId)
-        .get();
-    final deportes = resultado.docs.map(Deporte.fromFirestore).toList()
+    final docs = await _firestore.disciplinasDe(entrenadorId);
+    final deportes = docs.map(Deporte.fromFirestore).toList()
       ..sort((a, b) => a.nombre.compareTo(b.nombre));
     return deportes;
   }

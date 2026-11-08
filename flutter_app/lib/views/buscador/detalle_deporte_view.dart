@@ -156,6 +156,21 @@ class _DetalleDeporteViewState extends State<DetalleDeporteView> {
               Icons.place_outlined,
               deporte.lugar.isEmpty ? 'Lugar por definir' : deporte.lugar,
             ),
+            const SizedBox(height: 12),
+            Text(
+              deporte.entrenadoresIds.length > 1 ? 'Entrenadores' : 'Entrenador',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            if (deporte.nombresDeEntrenadores.isEmpty)
+              _dato(Icons.sports_outlined, deporte.entrenadoresTexto)
+            else
+              for (final nombre in deporte.nombresDeEntrenadores)
+                Padding(
+                  key: Key('entrenador-detalle-$nombre'),
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: _dato(Icons.sports_outlined, nombre),
+                ),
           ],
         ),
       ),

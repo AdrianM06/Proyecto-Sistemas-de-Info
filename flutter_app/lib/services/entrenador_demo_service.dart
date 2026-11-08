@@ -33,7 +33,7 @@ class EntrenadorDemoService implements EntrenadorDataSource {
       nombre: 'Fútbol Masculino',
       disciplina: 'Fútbol',
       cupos: 25,
-      entrenadorId: entrenadorDemoId,
+      entrenadoresIds: [entrenadorDemoId],
       horarios: ['Lun 4:00–6:00 pm', 'Mié 4:00–6:00 pm'],
       lugar: 'Cancha principal',
     ),
@@ -42,7 +42,7 @@ class EntrenadorDemoService implements EntrenadorDataSource {
       nombre: 'Fútbol Sala Mixto',
       disciplina: 'Fútbol Sala',
       cupos: 18,
-      entrenadorId: entrenadorDemoId,
+      entrenadoresIds: [entrenadorDemoId],
       horarios: ['Sáb 9:00–11:00 am'],
       lugar: 'Polideportivo',
     ),
@@ -51,7 +51,7 @@ class EntrenadorDemoService implements EntrenadorDataSource {
       nombre: 'Baloncesto Masculino',
       disciplina: 'Baloncesto',
       cupos: 20,
-      entrenadorId: 'otro-entrenador',
+      entrenadoresIds: ['otro-entrenador'],
       horarios: ['Mar 5:00–7:00 pm'],
       lugar: 'Polideportivo',
     ),
@@ -104,7 +104,7 @@ class EntrenadorDemoService implements EntrenadorDataSource {
   Future<List<Deporte>> deportesDelEntrenador(String entrenadorId) async {
     await _esperar();
     return _deportes
-        .where((deporte) => deporte.entrenadorId == entrenadorId)
+        .where((deporte) => deporte.tieneEntrenador(entrenadorId))
         .toList();
   }
 

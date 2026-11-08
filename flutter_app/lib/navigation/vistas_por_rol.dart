@@ -99,6 +99,13 @@ Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
         navigator.pushNamed(AppRoutes.gestionEstudiantes, arguments: sesion),
     onGestionarEntrenadores: () =>
         navigator.pushNamed(AppRoutes.gestionEntrenadores, arguments: sesion),
+    // Solo se llega desde el panel del admin, que ya pasó por la guarda de
+    // rol de la ruta.
+    onEditarDeporte: (deporte) => navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => CrearDeporteView(deporte: deporte),
+      ),
+    ),
   );
 }
 

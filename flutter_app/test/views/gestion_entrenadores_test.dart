@@ -5,11 +5,13 @@ import 'package:flutter_app/controllers/gestion_entrenadores_controller.dart';
 import 'package:flutter_app/models/deporte.dart';
 import 'package:flutter_app/models/usuario.dart';
 import 'package:flutter_app/services/gestion_entrenadores_service.dart';
+import 'package:flutter_app/utils/choques_horario.dart';
 import 'package:flutter_app/views/admin/gestion_entrenadores_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Simula Firestore: guarda las disciplinas en memoria y, al asignar o
-/// revocar, emite la lista nueva igual que lo haría `snapshots()`.
+/// revocar, emite la lista nueva igual que lo haría `snapshots()`. Como el
+/// servicio real, vuelve a validar los choques de horario al asignar.
 class _Datos implements GestionEntrenadoresDataSource {
   _Datos(this._deportes);
 
@@ -19,6 +21,7 @@ class _Datos implements GestionEntrenadoresDataSource {
   List<Usuario> entrenadoresActuales = const [];
   int escrituras = 0;
   Completer<void>? bloqueo;
+  Deporte? guardada;
 
   @override
   Stream<List<Usuario>> entrenadores() => _entrenadoresFlujo.stream;
@@ -31,30 +34,42 @@ class _Datos implements GestionEntrenadoresDataSource {
     _deportesFlujo.add(_deportes);
   }
 
-  void _poner(String deporteId, String entrenadorId) {
+  Deporte _deporte(String id) => _deportes.firstWhere((d) => d.id == id);
+
+  /// Cambia los entrenadores de una disciplina sin pasar por el controlador,
+  /// como si lo hiciera otro administrador.
+  void poner(String deporteId, List<String> ids) {
     _deportes = [
-      for (final d in _deportes) d.id == deporteId ? _con(d, entrenadorId) : d,
+      for (final d in _deportes) d.id == deporteId ? d.conEntrenadores(ids) : d,
     ];
     _deportesFlujo.add(_deportes);
   }
 
-  Deporte _con(Deporte d, String entrenadorId) => Deporte(
-    id: d.id,
-    nombre: d.nombre,
-    disciplina: d.disciplina,
-    cupos: d.cupos,
-    entrenadorId: entrenadorId,
-    horarios: d.horarios,
-  );
-
   @override
   Future<void> asignar({
     required String entrenadorId,
+    required String entrenadorNombre,
     required String deporteId,
   }) async {
     await bloqueo?.future;
+    final deporte = _deporte(deporteId);
+    final choques = buscarChoques(
+      bloques: deporte.bloques,
+      asignadas: _deportes.where((d) => d.tieneEntrenador(entrenadorId)),
+      disciplinaId: deporteId,
+    );
+    if (choques.isNotEmpty) {
+      throw ChoqueHorarioException(
+        mensajeDeChoques(
+          entrenador: entrenadorNombre,
+          disciplina: deporte.nombre,
+          choques: choques,
+        )!,
+        choques,
+      );
+    }
     escrituras++;
-    _poner(deporteId, entrenadorId);
+    poner(deporteId, [...deporte.entrenadoresIds, entrenadorId]);
   }
 
   @override
@@ -63,14 +78,23 @@ class _Datos implements GestionEntrenadoresDataSource {
     required String deporteId,
   }) async {
     await bloqueo?.future;
-    final actual = _deportes.firstWhere((d) => d.id == deporteId);
-    if (actual.entrenadorId != entrenadorId) {
+    final actual = _deporte(deporteId);
+    if (!actual.tieneEntrenador(entrenadorId)) {
       throw const GestionEntrenadoresException(
         'Esa disciplina ya no está asignada a este entrenador.',
       );
     }
     escrituras++;
-    _poner(deporteId, '');
+    poner(deporteId, [
+      for (final id in actual.entrenadoresIds)
+        if (id != entrenadorId) id,
+    ]);
+  }
+
+  @override
+  Future<void> guardarDisciplina(Deporte deporte) async {
+    escrituras++;
+    guardada = deporte;
   }
 }
 
@@ -96,7 +120,7 @@ const _futbol = Deporte(
   nombre: 'Futbol Campo Masculino',
   disciplina: 'Futbol Campo',
   cupos: 30,
-  entrenadorId: 'ana',
+  entrenadoresIds: ['ana'],
   horarios: ['Lun y Mié 12:15 PM - 1:45 PM'],
 );
 
@@ -105,8 +129,16 @@ const _ajedrez = Deporte(
   nombre: 'Ajedrez',
   disciplina: 'Ajedrez',
   cupos: 20,
-  entrenadorId: '',
   horarios: ['Martes y Jueves 3:00 PM - 5:00 PM'],
+);
+
+/// Choca con fútbol el lunes (1:00 pm cae dentro de 12:15–1:45 pm).
+const _voleibol = Deporte(
+  id: 'vol',
+  nombre: 'Voleibol',
+  disciplina: 'Voleibol',
+  cupos: 16,
+  horarios: ['Lun 1:00 PM - 3:00 PM'],
 );
 
 const _vacio = Deporte(
@@ -114,7 +146,6 @@ const _vacio = Deporte(
   nombre: 'Sin nombre',
   disciplina: '',
   cupos: 0,
-  entrenadorId: '',
 );
 
 void main() {
@@ -122,12 +153,22 @@ void main() {
   late GestionEntrenadoresController controlador;
 
   setUp(() {
-    datos = _Datos([_futbol, _ajedrez, _vacio])
+    datos = _Datos([_futbol, _ajedrez, _voleibol, _vacio])
       ..entrenadoresActuales = [_luis, _ana];
     controlador = GestionEntrenadoresController(datos: datos);
   });
 
   Future<void> esperar() => Future<void>.delayed(Duration.zero);
+
+  Future<void> iniciar() async {
+    controlador.iniciar();
+    datos.emitir();
+    await esperar();
+  }
+
+  Map<String, EntrenadorConDisciplinas> porId() => {
+    for (final f in controlador.entrenadores) f.entrenador.uid: f,
+  };
 
   group('controlador', () {
     test(
@@ -144,66 +185,55 @@ void main() {
         expect(filas[0].disciplinas.map((d) => d.id), ['fut']);
         expect(filas[1].disciplinas, isEmpty);
         // El documento vacío no se ofrece para asignar.
-        expect(controlador.deportes.map((d) => d.id), ['aje', 'fut']);
+        expect(controlador.deportes.map((d) => d.id), ['aje', 'fut', 'vol']);
         controlador.dispose();
       },
     );
 
     test('asignar se refleja en tiempo real', () async {
-      controlador.iniciar();
-      datos.emitir();
-      await esperar();
+      await iniciar();
 
       expect(await controlador.asignar(_luis, _ajedrez), isNull);
       await esperar();
 
-      final luis = controlador.entrenadores.firstWhere(
-        (f) => f.entrenador.uid == 'luis',
-      );
-      expect(luis.disciplinas.map((d) => d.id), ['aje']);
+      expect(porId()['luis']!.disciplinas.map((d) => d.id), ['aje']);
       controlador.dispose();
     });
 
-    test('revocar quita la disciplina del entrenador', () async {
-      controlador.iniciar();
-      datos.emitir();
+    test('una disciplina puede tener varios entrenadores', () async {
+      await iniciar();
+      expect(controlador.entrenadoresDe(_futbol), ['Ana Rojas']);
+
+      expect(await controlador.asignar(_luis, _futbol), isNull);
       await esperar();
+
+      expect(porId()['ana']!.disciplinas.map((d) => d.id), ['fut']);
+      expect(porId()['luis']!.disciplinas.map((d) => d.id), ['fut']);
+      final futbol = controlador.deportes.firstWhere((d) => d.id == 'fut');
+      expect(futbol.entrenadoresIds, ['ana', 'luis']);
+      expect(controlador.entrenadoresDe(futbol), ['Ana Rojas', 'Luis Pérez']);
+      controlador.dispose();
+    });
+
+    test('revocar quita solo a ese entrenador', () async {
+      datos.poner('fut', ['ana', 'luis']);
+      await iniciar();
 
       expect(await controlador.revocar(_ana, _futbol), isNull);
       await esperar();
 
-      final ana = controlador.entrenadores.first;
-      expect(ana.disciplinas, isEmpty);
+      expect(porId()['ana']!.disciplinas, isEmpty);
       expect(
-        controlador.deportes.firstWhere((d) => d.id == 'fut').entrenadorId,
-        isEmpty,
+        controlador.deportes.firstWhere((d) => d.id == 'fut').entrenadoresIds,
+        ['luis'],
       );
-      controlador.dispose();
-    });
-
-    test('reasignar pasa la disciplina al nuevo entrenador', () async {
-      controlador.iniciar();
-      datos.emitir();
-      await esperar();
-      expect(controlador.entrenadorDe(_futbol), 'Ana Rojas');
-
-      await controlador.asignar(_luis, _futbol);
-      await esperar();
-
-      final porId = {
-        for (final f in controlador.entrenadores) f.entrenador.uid: f,
-      };
-      expect(porId['ana']!.disciplinas, isEmpty);
-      expect(porId['luis']!.disciplinas.map((d) => d.id), ['fut']);
       controlador.dispose();
     });
 
     test(
       'revocar algo que ya no es suyo devuelve el error del servicio',
       () async {
-        controlador.iniciar();
-        datos.emitir();
-        await esperar();
+        await iniciar();
 
         final error = await controlador.revocar(_luis, _futbol);
         expect(error, contains('ya no está asignada'));
@@ -212,10 +242,38 @@ void main() {
       },
     );
 
+    test('bloquea asignar una disciplina que choca con su horario', () async {
+      await iniciar();
+
+      expect(controlador.choquesAlAsignar(_ana, _voleibol), hasLength(1));
+      expect(controlador.choquesAlAsignar(_luis, _voleibol), isEmpty);
+
+      final error = await controlador.asignar(_ana, _voleibol);
+      expect(error, contains('Futbol Campo Masculino'));
+      expect(error, contains('Lun 1:00 pm – 3:00 pm'));
+      expect(controlador.ultimoErrorFueChoque, isTrue);
+      expect(datos.escrituras, 0);
+      controlador.dispose();
+    });
+
+    test('si otro admin asignó algo al mismo tiempo, el servicio detecta el choque', () async {
+      await iniciar();
+      // El controlador todavía no vio este cambio: su validación previa
+      // pasa, pero la del servicio no.
+      datos._deportes = [
+        for (final d in datos._deportes)
+          d.id == 'vol' ? d.conEntrenadores(['luis']) : d,
+      ];
+
+      final error = await controlador.asignar(_luis, _futbol);
+      expect(error, contains('Voleibol'));
+      expect(controlador.ultimoErrorFueChoque, isTrue);
+      expect(datos.escrituras, 0);
+      controlador.dispose();
+    });
+
     test('no permite dos cambios a la vez', () async {
-      controlador.iniciar();
-      datos.emitir();
-      await esperar();
+      await iniciar();
       datos.bloqueo = Completer<void>();
 
       final primero = controlador.asignar(_luis, _ajedrez);
@@ -264,11 +322,7 @@ void main() {
       await tester.tap(find.byKey(const Key('asignar-luis')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('dialogo-asignar')), findsOneWidget);
-      // La que ya tiene Ana muestra su nombre; la de Ana no se puede repetir.
-      expect(
-        find.textContaining('Entrenador actual: Ana Rojas'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Entrenadores: Ana Rojas'), findsOneWidget);
       expect(find.byKey(const Key('opcion-vacio')), findsNothing);
 
       await tester.tap(find.byKey(const Key('opcion-aje')));
@@ -282,7 +336,7 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('reasignar pide confirmación y mueve la disciplina', (
+    testWidgets('asignar una disciplina con entrenador suma un segundo', (
       tester,
     ) async {
       await abrir(tester);
@@ -292,27 +346,34 @@ void main() {
       await tester.tap(find.byKey(const Key('opcion-fut')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Reasignar disciplina'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('confirmar-reasignar')));
-      await tester.pumpAndSettle();
-
       expect(find.byKey(const Key('asignada-luis-fut')), findsOneWidget);
-      expect(find.byKey(const Key('asignada-ana-fut')), findsNothing);
+      expect(find.byKey(const Key('asignada-ana-fut')), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('cancelar la reasignación no cambia nada', (tester) async {
+    testWidgets('un choque de horario se avisa y no se asigna', (tester) async {
       await abrir(tester);
 
-      await tester.tap(find.byKey(const Key('asignar-luis')));
+      await tester.tap(find.byKey(const Key('asignar-ana')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('opcion-fut')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancelar'));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('opcion-vol')),
+          matching: find.textContaining('Choca con su horario'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('opcion-vol')));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('dialogo-choque-horario')), findsOneWidget);
+      expect(find.textContaining('Futbol Campo Masculino'), findsWidgets);
       expect(datos.escrituras, 0);
-      expect(find.byKey(const Key('asignada-ana-fut')), findsOneWidget);
+
+      await tester.tap(find.text('Entendido'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('asignada-ana-vol')), findsNothing);
     });
 
     testWidgets('revocar pide confirmación y quita la disciplina', (
@@ -323,12 +384,12 @@ void main() {
       await tester.tap(find.byKey(const Key('revocar-ana-fut')));
       await tester.pumpAndSettle();
       expect(find.text('Revocar disciplina'), findsOneWidget);
+      expect(find.textContaining('quedará sin entrenador'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('confirmar-revocar')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('asignada-ana-fut')), findsNothing);
-      expect(find.byKey(const Key('resumen-ana')), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('resumen-ana'))).data,
         'Sin disciplinas asignadas',
@@ -342,7 +403,7 @@ void main() {
       await abrir(tester);
       expect(find.byKey(const Key('asignada-luis-aje')), findsNothing);
 
-      datos._poner('aje', 'luis');
+      datos.poner('aje', ['luis']);
       await tester.pump();
 
       expect(find.byKey(const Key('asignada-luis-aje')), findsOneWidget);

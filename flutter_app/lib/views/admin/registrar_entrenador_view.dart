@@ -263,9 +263,9 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
                           DropdownMenuItem<String?>(
                             value: deporte.id,
                             child: Text(
-                              deporte.entrenadorId.isEmpty
+                              deporte.sinEntrenadores
                                   ? deporte.nombre
-                                  : '${deporte.nombre} (ya tiene entrenador)',
+                                  : '${deporte.nombre} (entrenadores: ${deporte.entrenadoresIds.length})',
                             ),
                           ),
                       ],

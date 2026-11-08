@@ -16,7 +16,7 @@ const _ajedrez = Deporte(
   nombre: 'Ajedrez',
   disciplina: 'Ajedrez',
   cupos: 30,
-  entrenadorId: '',
+  entrenadoresIds: [],
   horarios: ['Vie 1:00–3:00 pm'],
   lugar: 'Biblioteca, sala 2',
 );

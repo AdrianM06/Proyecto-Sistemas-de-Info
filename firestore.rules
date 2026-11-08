@@ -151,9 +151,32 @@ service cloud.firestore {
     // ---------------------------------------------------------------- deportes
 
     // El catálogo es público; solo el admin crea o cambia disciplinas.
+    //
+    // Varios entrenadores por disciplina: `entrenadoresIds` es una lista de
+    // uids y `entrenadoresNombres` un mapa uid -> nombre. Los horarios
+    // estructurados (`bloquesHorario`: [{dia, inicio, fin}] en minutos) se
+    // validan en la app; aquí solo se exige el tipo, porque las reglas no
+    // pueden recorrer listas. Que un entrenador no tenga dos disciplinas a la
+    // misma hora lo comprueba la app dentro de una transacción: las reglas no
+    // pueden consultar las demás disciplinas del entrenador.
+    function disciplinaValida() {
+      let d = request.resource.data;
+      return (!('entrenadoresIds' in d) || (d.entrenadoresIds is list
+                                            && d.entrenadoresIds.size() <= 20))
+        && (!('entrenadoresNombres' in d) || d.entrenadoresNombres is map)
+        && (!('bloquesHorario' in d) || (d.bloquesHorario is list
+                                         && d.bloquesHorario.size() <= 50))
+        && (!('diasSemana' in d) || d.diasSemana is list)
+        && (!('horaMinima' in d) || d.horaMinima == null
+            || (d.horaMinima is int && d.horaMinima >= 0 && d.horaMinima <= 1440))
+        && (!('horaMaxima' in d) || d.horaMaxima == null
+            || (d.horaMaxima is int && d.horaMaxima >= 0 && d.horaMaxima <= 1440));
+    }
+
     match /sports/{deporteId} {
       allow read: if true;
-      allow write: if esAdmin();
+      allow create, update: if esAdmin() && disciplinaValida();
+      allow delete: if esAdmin();
     }
 
     // ------------------------------------------------------------ inscripciones

@@ -31,7 +31,7 @@ const _futbol = Deporte(
   nombre: 'Futbol Campo Masculino',
   disciplina: 'Futbol Campo',
   cupos: 30,
-  entrenadorId: 'e1',
+  entrenadoresIds: ['e1'],
   horarios: ['Lun y Mié 12:15 PM - 1:45 PM'],
   lugar: 'Cancha Futbol Campo',
 );
@@ -41,7 +41,7 @@ const _ajedrez = Deporte(
   nombre: 'Ajedrez',
   disciplina: 'Ajedrez',
   cupos: 20,
-  entrenadorId: 'e2',
+  entrenadoresIds: ['e2'],
   horarios: ['Martes y Jueves 3:00 PM - 5:00 PM'],
 );
 
@@ -110,7 +110,7 @@ void main() {
             nombre: 'Futbol Campo Masculino',
             disciplina: 'Futbol Campo',
             cupos: 30,
-            entrenadorId: 'e1',
+            entrenadoresIds: ['e1'],
             horarios: ['Vie 4:00 PM - 6:00 PM'],
           ),
         ]);

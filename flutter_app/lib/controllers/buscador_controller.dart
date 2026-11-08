@@ -75,6 +75,13 @@ class BuscadorController extends ChangeNotifier {
   String? _etiqueta;
   String? _dia;
   bool _soloConCupos = false;
+  int? _desde;
+  int? _hasta;
+
+  /// Límites del filtro por horas, en minutos desde la medianoche
+  /// (6:00 am a 10:00 pm).
+  static const int primeraHora = 6 * 60;
+  static const int ultimaHora = 22 * 60;
 
   bool get cargando => _cargando;
   String? get error => _error;
@@ -84,11 +91,20 @@ class BuscadorController extends ChangeNotifier {
   String? get dia => _dia;
   bool get soloConCupos => _soloConCupos;
 
+  /// Inicio de la franja horaria elegida (minutos desde la medianoche), o
+  /// `null` si no se filtra por horas.
+  int? get desde => _desde;
+
+  /// Fin de la franja horaria elegida (minutos desde la medianoche).
+  int? get hasta => _hasta;
+  bool get filtraPorHoras => _desde != null && _hasta != null;
+
   bool get hayFiltros =>
       _texto.trim().isNotEmpty ||
       _disciplina != null ||
       _etiqueta != null ||
       _dia != null ||
+      filtraPorHoras ||
       _soloConCupos;
 
   List<Deporte> get todos => List.unmodifiable(_todos);
@@ -234,11 +250,29 @@ class BuscadorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deja solo las disciplinas con algún entrenamiento que empiece y termine
+  /// dentro de la franja [desde]–[hasta] (minutos desde la medianoche). Si
+  /// además hay un día elegido, el entrenamiento tiene que ser ese día.
+  /// Con `null` se quita el filtro.
+  void elegirRangoHoras(int? desde, int? hasta) {
+    if (desde == null || hasta == null || hasta <= desde) {
+      _desde = null;
+      _hasta = null;
+    } else {
+      _desde = desde;
+      _hasta = hasta;
+    }
+    _filtrar();
+    notifyListeners();
+  }
+
   void limpiarFiltros() {
     _texto = '';
     _disciplina = null;
     _etiqueta = null;
     _dia = null;
+    _desde = null;
+    _hasta = null;
     _soloConCupos = false;
     _filtrar();
     notifyListeners();
@@ -289,7 +323,14 @@ class BuscadorController extends ChangeNotifier {
           !deporte.etiquetas.any((e) => normalizar(e) == etiqueta)) {
         return false;
       }
-      if (dia != null && !deporte.diasDeEntrenamiento.contains(dia)) {
+      if (filtraPorHoras) {
+        final enLaFranja = deporte.bloques.any(
+          (bloque) =>
+              (dia == null || bloque.dia == dia) &&
+              bloque.estaDentroDe(_desde!, _hasta!),
+        );
+        if (!enLaFranja) return false;
+      } else if (dia != null && !deporte.diasDeEntrenamiento.contains(dia)) {
         return false;
       }
       if (_soloConCupos && cuposDisponiblesDe(deporte) == 0) {
