@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 
 import '../../models/deporte.dart';
 import '../../services/firestore_service.dart';
+import 'panel_resumen_admin.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFF58220);
 
-/// Panel del administrador: accesos rápidos (registrar entrenadores, crear
-/// disciplinas, gestionar estudiantes) y la lista de deportes con sus
-/// horarios y etiquetas.
+/// Panel del administrador (CU14: Visualizar Dashboard): resumen en números
+/// (estudiantes, entrenadores, disciplinas e inscripciones activas), accesos
+/// rápidos (registrar entrenadores, crear y gestionar disciplinas, gestionar
+/// estudiantes) y la lista de deportes con sus horarios y etiquetas.
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({
     super.key,
@@ -25,10 +27,15 @@ class AdminDashboardView extends StatelessWidget {
     this.onEditarDeporte,
     this.onGestionarDisciplinas,
     this.listaDeportes,
+    this.resumen,
   });
 
   /// Reemplaza la lista de deportes de Firestore (para las pruebas).
   final Widget? listaDeportes;
+
+  /// Reemplaza el resumen en números conectado a Firestore (para las
+  /// pruebas). Por defecto, [PanelResumenAdmin.conFirebase].
+  final Widget? resumen;
 
   /// Abre la lista de disciplinas para cambiar su horario, nombre, lugar,
   /// etiquetas y entrenadores.
@@ -87,8 +94,10 @@ class AdminDashboardView extends StatelessWidget {
             ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      // Toda la página se desplaza: así el resumen, los accesos y la lista
+      // caben también en el teléfono.
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
@@ -99,6 +108,17 @@ class AdminDashboardView extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: _azul,
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: resumen ?? PanelResumenAdmin.conFirebase(),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Text(
+              'Accesos rápidos',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
           Padding(
@@ -147,7 +167,7 @@ class AdminDashboardView extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(child: listaDeportes ?? _listaDeportes()),
+          listaDeportes ?? _listaDeportes(),
         ],
       ),
     );
@@ -158,10 +178,16 @@ class AdminDashboardView extends StatelessWidget {
         stream: FirestoreService.instance.sports.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            );
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No hay deportes registrados.'));
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('No hay deportes registrados.')),
+            );
           }
 
           final deportes = snapshot.data!.docs
@@ -169,6 +195,10 @@ class AdminDashboardView extends StatelessWidget {
               .toList();
 
           return ListView.builder(
+            // La página completa ya se desplaza: la lista ocupa su alto
+            // natural.
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: deportes.length,
             itemBuilder: (context, index) {

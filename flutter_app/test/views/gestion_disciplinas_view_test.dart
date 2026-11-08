@@ -145,6 +145,7 @@ void main() {
           home: AdminDashboardView(
             onGestionarDisciplinas: () => abierta = true,
             listaDeportes: const SizedBox.shrink(),
+            resumen: const SizedBox.shrink(),
           ),
         ),
       );
