@@ -23,7 +23,16 @@ class AdminDashboardView extends StatelessWidget {
     this.onGestionarEstudiantes,
     this.onGestionarEntrenadores,
     this.onEditarDeporte,
+    this.onGestionarDisciplinas,
+    this.listaDeportes,
   });
+
+  /// Reemplaza la lista de deportes de Firestore (para las pruebas).
+  final Widget? listaDeportes;
+
+  /// Abre la lista de disciplinas para cambiar su horario, nombre, lugar,
+  /// etiquetas y entrenadores.
+  final VoidCallback? onGestionarDisciplinas;
 
   final String nombreAdmin;
 
@@ -117,6 +126,12 @@ class AdminDashboardView extends StatelessWidget {
                   onTap: onCrearDeporte,
                 ),
                 _AccionAdmin(
+                  key: const Key('admin-gestionar-disciplinas'),
+                  icono: Icons.edit_calendar_outlined,
+                  titulo: 'Gestionar disciplinas',
+                  onTap: onGestionarDisciplinas,
+                ),
+                _AccionAdmin(
                   key: const Key('admin-gestionar-estudiantes'),
                   icono: Icons.groups_outlined,
                   titulo: 'Gestionar estudiantes',
@@ -132,7 +147,7 @@ class AdminDashboardView extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(child: _listaDeportes()),
+          Expanded(child: listaDeportes ?? _listaDeportes()),
         ],
       ),
     );

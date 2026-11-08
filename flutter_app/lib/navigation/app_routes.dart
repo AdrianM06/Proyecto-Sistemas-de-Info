@@ -36,6 +36,7 @@ class AppRoutes {
   static const String crearDeporte = '/admin/crear-deporte';
   static const String registrarEntrenador = '/admin/entrenadores/nuevo';
   static const String gestionEntrenadores = '/admin/entrenadores';
+  static const String gestionDisciplinas = '/admin/disciplinas';
 
   /// Ruta de inicio según el rol guardado en la base de datos.
   static String rutaParaRol(String rol) {
@@ -162,6 +163,8 @@ class AppRoutes {
         return _rutaAdmin(settings, construirRegistroEntrenador);
       case gestionEntrenadores:
         return _rutaAdmin(settings, construirGestionEntrenadores);
+      case gestionDisciplinas:
+        return _rutaAdmin(settings, construirGestionDisciplinas);
       default:
         return _ruta(
           const RouteSettings(name: landing),
