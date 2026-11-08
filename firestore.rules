@@ -183,8 +183,13 @@ service cloud.firestore {
 
     match /enrollments/{inscripcionId} {
       allow read: if conSesion();
+      // Un estudiante deshabilitado por el admin (estadoActivo == false)
+      // puede iniciar sesión, pero no inscribirse. Al deshabilitarlo, el
+      // admin lo retira de todas sus disciplinas en el mismo lote.
       allow create: if esAdmin()
-        || (conSesion() && request.resource.data.estudianteId == request.auth.uid);
+        || (conSesion()
+            && request.resource.data.estudianteId == request.auth.uid
+            && get(rutaUsuario(request.auth.uid)).data.get('estadoActivo', true) != false);
       // El estudiante solo puede retirarse de su propia inscripción.
       allow update: if esAdmin()
         || (conSesion()

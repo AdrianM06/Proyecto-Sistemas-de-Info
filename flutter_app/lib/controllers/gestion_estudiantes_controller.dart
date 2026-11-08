@@ -12,7 +12,9 @@ import '../services/gestion_estudiantes_service.dart';
 /// instante; si Firestore lo rechaza, el interruptor vuelve a su estado.
 ///
 /// Un estudiante deshabilitado **sí puede iniciar sesión** y entrar a la
-/// plataforma; lo que no puede es inscribirse en disciplinas nuevas.
+/// plataforma; lo que no puede es estar inscrito: al deshabilitarlo se le
+/// retira de todas sus disciplinas y no puede inscribirse de nuevo hasta que
+/// lo habiliten.
 class GestionEstudiantesController extends ChangeNotifier {
   GestionEstudiantesController({required GestionEstudiantesDataSource datos})
     : _datos = datos;
@@ -86,14 +88,23 @@ class GestionEstudiantesController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Habilita o deshabilita a [estudiante]. Devuelve el error o `null` si se
-  /// guardó.
+  /// Inscripciones que se retiraron en el último cambio que se guardó.
+  int get retiradasEnUltimoCambio => _retiradas;
+  int _retiradas = 0;
+
+  /// Habilita o deshabilita a [estudiante]. Al deshabilitarlo también se le
+  /// retira de todas sus disciplinas ([retiradasEnUltimoCambio] dice de
+  /// cuántas). Devuelve el error o `null` si se guardó.
   Future<String?> cambiarEstado(Usuario estudiante, bool activo) async {
     if (guardando(estudiante.uid)) return null;
+    _retiradas = 0;
     _pendientes[estudiante.uid] = activo;
     notifyListeners();
     try {
-      await _datos.cambiarEstado(uid: estudiante.uid, activo: activo);
+      _retiradas = await _datos.cambiarEstado(
+        uid: estudiante.uid,
+        activo: activo,
+      );
       return null;
     } on GestionEstudiantesException catch (e) {
       return e.mensaje;

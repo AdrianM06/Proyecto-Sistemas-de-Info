@@ -17,20 +17,28 @@ class _Datos implements GestionEstudiantesDataSource {
   String? fallo;
   final List<(String, bool)> cambios = [];
 
+  /// Disciplinas con inscripción activa de cada estudiante.
+  final Map<String, Set<String>> inscripciones = {
+    'andrea': {'fut', 'aje'},
+  };
+
   void emitir() => _flujo.add(_lista);
 
   @override
   Stream<List<Usuario>> estudiantes() => _flujo.stream;
 
   @override
-  Future<void> cambiarEstado({
-    required String uid,
-    required bool activo,
-  }) async {
+  Future<int> cambiarEstado({required String uid, required bool activo}) async {
     if (fallo != null) throw GestionEstudiantesException(fallo!);
     cambios.add((uid, activo));
     _lista = [for (final u in _lista) u.uid == uid ? _conEstado(u, activo) : u];
+    var retiradas = 0;
+    if (!activo) {
+      retiradas = inscripciones[uid]?.length ?? 0;
+      inscripciones.remove(uid);
+    }
     emitir();
+    return retiradas;
   }
 }
 
@@ -112,20 +120,47 @@ void main() {
     expect(interruptor(tester, 'luis'), isFalse);
 
     await tester.tap(find.byKey(const Key('estado-andrea')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    // Antes de deshabilitar pide confirmación y avisa del retiro.
+    expect(find.byKey(const Key('dialogo-deshabilitar')), findsOneWidget);
+    expect(find.textContaining('Se le retirará de inmediato'), findsOneWidget);
+    expect(datos.cambios, isEmpty);
+
+    await tester.tap(find.byKey(const Key('confirmar-deshabilitar')));
+    await tester.pumpAndSettle();
     expect(datos.cambios, [('andrea', false)]);
+    expect(datos.inscripciones['andrea'], isNull);
     expect(interruptor(tester, 'andrea'), isFalse);
-    expect(find.textContaining('Puede iniciar sesión'), findsOneWidget);
+    expect(
+      find.text(
+        'Andrea Pérez quedó deshabilitado. Se le retiró de 2 disciplinas.',
+      ),
+      findsOneWidget,
+    );
     expect(
       tester.widget<Text>(find.byKey(const Key('resumen-estudiantes'))).data,
       'Habilitados: 0 · Deshabilitados: 2',
     );
 
+    // Habilitar no pide confirmación.
     await tester.tap(find.byKey(const Key('estado-luis')));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(datos.cambios.last, ('luis', true));
     expect(interruptor(tester, 'luis'), isTrue);
     await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('cancelar la confirmación no deshabilita', (tester) async {
+    await abrir(tester);
+
+    await tester.tap(find.byKey(const Key('estado-andrea')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(datos.cambios, isEmpty);
+    expect(datos.inscripciones['andrea'], {'fut', 'aje'});
+    expect(interruptor(tester, 'andrea'), isTrue);
   });
 
   testWidgets('si Firestore rechaza el cambio, el interruptor vuelve', (
@@ -136,7 +171,9 @@ void main() {
         'No tienes permiso para cambiar el estado de los estudiantes.';
 
     await tester.tap(find.byKey(const Key('estado-andrea')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmar-deshabilitar')));
+    await tester.pumpAndSettle();
 
     expect(interruptor(tester, 'andrea'), isTrue);
     expect(find.textContaining('No tienes permiso'), findsOneWidget);

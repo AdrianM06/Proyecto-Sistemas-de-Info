@@ -43,15 +43,55 @@ class _GestionEstudiantesViewState extends State<GestionEstudiantesView> {
     super.dispose();
   }
 
+  /// Deshabilitar retira al estudiante de sus disciplinas, así que se pide
+  /// confirmación antes.
+  Future<bool> _confirmarDeshabilitar(Usuario estudiante) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (contextoDialogo) => AlertDialog(
+        key: const Key('dialogo-deshabilitar'),
+        icon: Icon(Icons.block, color: Colors.red[700], size: 36),
+        title: const Text('Deshabilitar estudiante'),
+        content: Text(
+          '¿Deshabilitar a ${estudiante.nombreCompleto}?\n\n'
+          'Se le retirará de inmediato de todas las disciplinas en las que '
+          'está inscrito y no podrá inscribirse de nuevo hasta que lo '
+          'habilites. Podrá seguir iniciando sesión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(contextoDialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('confirmar-deshabilitar'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
+            onPressed: () => Navigator.of(contextoDialogo).pop(true),
+            child: const Text('Deshabilitar'),
+          ),
+        ],
+      ),
+    );
+    return confirmado == true;
+  }
+
   Future<void> _cambiar(Usuario estudiante, bool activo) async {
+    if (!activo && !await _confirmarDeshabilitar(estudiante)) return;
+    if (!mounted) return;
     final error = await _controller.cambiarEstado(estudiante, activo);
     if (!mounted) return;
+    final retiradas = _controller.retiradasEnUltimoCambio;
     final mensaje =
         error ??
         (activo
-            ? '${estudiante.nombreCompleto} quedó habilitado.'
-            : '${estudiante.nombreCompleto} quedó deshabilitado. Puede '
-                  'iniciar sesión, pero no inscribirse en disciplinas.');
+            ? '${estudiante.nombreCompleto} quedó habilitado. Ya puede '
+                  'inscribirse de nuevo.'
+            : '${estudiante.nombreCompleto} quedó deshabilitado. '
+                  '${switch (retiradas) {
+                    0 => 'No estaba inscrito en ninguna disciplina.',
+                    1 => 'Se le retiró de 1 disciplina.',
+                    _ => 'Se le retiró de $retiradas disciplinas.',
+                  }}');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -136,8 +176,8 @@ class _GestionEstudiantesViewState extends State<GestionEstudiantesView> {
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: Text(
-            'Un estudiante deshabilitado puede iniciar sesión, pero no '
-            'inscribirse en disciplinas.',
+            'Al deshabilitar a un estudiante se le retira de todas sus '
+            'disciplinas. Puede seguir iniciando sesión.',
             style: TextStyle(fontSize: 12, color: Colors.black54),
           ),
         ),
