@@ -1,0 +1,89 @@
+import 'package:flutter/material.dart';
+import '../../models/clase_model.dart';
+import '../../services/inscripciones_service.dart';
+
+class GestionInscripcionesView extends StatefulWidget {
+  final ClaseModel clase;
+  final String atletaSeleccionadoId;
+
+  const GestionInscripcionesView({
+    super.key,
+    required this.clase,
+    required this.atletaSeleccionadoId,
+  });
+
+  @override
+  State<GestionInscripcionesView> createState() => _GestionInscripcionesViewState();
+}
+
+class _GestionInscripcionesViewState extends State<GestionInscripcionesView> {
+  final InscripcionesService _service = InscripcionesService();
+  bool _cargando = false;
+
+  void _procesarInscripcion(bool esInscripcion) async {
+    setState(() => _cargando = true);
+    try {
+      if (esInscripcion) {
+        await _service.inscribirAtleta(
+          claseId: widget.clase.id,
+          atletaId: widget.atletaSeleccionadoId,
+        );
+      } else {
+        await _service.cancelarInscripcion(
+          claseId: widget.clase.id,
+          atletaId: widget.atletaSeleccionadoId,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(esInscripcion ? 'Inscripción exitosa' : 'Inscripción cancelada')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool yaInscrito = widget.clase.atletasInscritosIds.contains(widget.atletaSeleccionadoId);
+    final bool cupoAgotado = widget.clase.estaLlena;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Text(widget.clase.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text(
+              'Cupo: ${widget.clase.inscritosActuales} / ${widget.clase.cupoMaximo}',
+              style: TextStyle(color: cupoAgotado ? Colors.red : Colors.green),
+            ),
+            const SizedBox(height: 16),
+            if (_cargando)
+              const CircularProgressIndicator()
+            else if (yaInscrito)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => _procesarInscripcion(false),
+                child: const Text('Cancelar Inscripción'),
+              )
+            else
+              ElevatedButton(
+                onPressed: cupoAgotado ? null : () => _procesarInscripcion(true),
+                child: Text(cupoAgotado ? 'Cupo Lleno' : 'Inscribir Atleta'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
