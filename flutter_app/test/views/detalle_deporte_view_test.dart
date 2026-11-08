@@ -6,6 +6,7 @@ import 'package:flutter_app/services/buscador_demo_service.dart';
 import 'package:flutter_app/views/buscador/buscador_screen.dart';
 import 'package:flutter_app/views/buscador/detalle_deporte_view.dart';
 import 'package:flutter_app/views/theme/saman_colors.dart';
+import 'package:flutter_app/views/widgets/estrellas.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/resenas_falsas.dart';
@@ -78,14 +79,39 @@ void main() {
     expect(find.byKey(const Key('boton-publicar-resena')), findsNothing);
   });
 
-  testWidgets('quien no participó en la disciplina no puede opinar', (
+  testWidgets('quien no está inscrito en la disciplina no puede opinar', (
     tester,
   ) async {
     datos = ResenasFalsas(participa: false);
     await abrir(tester, estudiante: 'yo');
 
     expect(find.byKey(const Key('aviso-sin-participacion')), findsOneWidget);
+    expect(
+      find.textContaining('Solo los estudiantes inscritos'),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('boton-publicar-resena')), findsNothing);
+    expect(find.byKey(const Key('estrella-1')), findsNothing);
+  });
+
+  testWidgets('el inscrito ve las 5 estrellas y se pintan al elegir', (
+    tester,
+  ) async {
+    datos = ResenasFalsas();
+    await abrir(tester, estudiante: 'yo');
+
+    for (var i = 1; i <= 5; i++) {
+      expect(find.byKey(Key('estrella-$i')), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const Key('estrella-3')));
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(SelectorEstrellas),
+        matching: find.byIcon(Icons.star_rounded),
+      ),
+      findsNWidgets(3),
+    );
   });
 
   testWidgets('no se envía sin estrellas ni sin comentario', (tester) async {

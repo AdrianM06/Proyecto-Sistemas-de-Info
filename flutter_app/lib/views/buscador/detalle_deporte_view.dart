@@ -225,8 +225,8 @@ class _DetalleDeporteViewState extends State<DetalleDeporteView> {
     if (!_controller.puedeResenar) {
       return _aviso(
         const Key('aviso-sin-participacion'),
-        'Solo pueden opinar los estudiantes que se han inscrito en esta '
-        'disciplina.',
+        'Solo los estudiantes inscritos en esta disciplina pueden dejar una '
+        'reseña. Inscríbete desde el catálogo para valorarla.',
       );
     }
 

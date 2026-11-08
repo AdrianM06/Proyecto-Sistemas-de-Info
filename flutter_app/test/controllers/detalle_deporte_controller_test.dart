@@ -70,7 +70,7 @@ void main() {
     c.dispose();
   });
 
-  test('un estudiante que no participó no puede publicar', () async {
+  test('un estudiante sin inscripción activa no puede publicar', () async {
     final datos = ResenasFalsas(participa: false);
     final c = crear(datos, estudiante: 'yo')..iniciar();
     datos.emitir();
@@ -79,6 +79,18 @@ void main() {
     expect(c.puedeResenar, isFalse);
     expect(await c.publicar(rating: 5, comment: 'Hola'), contains('inscritos'));
     expect(datos.guardados, 0);
+    c.dispose();
+  });
+
+  test('la reseña se guarda con el id de la inscripción activa', () async {
+    final datos = ResenasFalsas();
+    final c = crear(datos, estudiante: 'yo')..iniciar();
+    datos.emitir();
+    await esperar();
+
+    expect(c.puedeResenar, isTrue);
+    expect(await c.publicar(rating: 5, comment: 'Excelente'), isNull);
+    expect(datos.ultimaInscripcion, 'ins-yo');
     c.dispose();
   });
 

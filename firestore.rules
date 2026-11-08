@@ -183,12 +183,22 @@ service cloud.firestore {
 
     // Reseñas: sports/{deporteId}/reviews/{estudianteId}. Las lee cualquiera
     // (el catálogo es público). Cada estudiante escribe solo la suya, porque
-    // el id del documento es su uid. Que haya participado en la disciplina se
-    // revisa en la app: las reglas no pueden buscar en `enrollments`.
+    // el id del documento es su uid, y solo si está inscrito: la reseña lleva
+    // el id de su inscripción y aquí se comprueba que esa inscripción es suya,
+    // de esta disciplina y no está retirada.
+    function inscripcionActivaDe(inscripcionId, deporteId) {
+      let ins = get(/databases/$(database)/documents/enrollments/$(inscripcionId)).data;
+      return ins.estudianteId == request.auth.uid
+        && ins.deporteId == deporteId
+        && ins.get('estado', 'activa') != 'retirada';
+    }
+
     function resenaValida(deporteId, estudianteId) {
       let d = request.resource.data;
       return d.estudianteId == estudianteId
         && d.deporteId == deporteId
+        && d.inscripcionId is string
+        && inscripcionActivaDe(d.inscripcionId, deporteId)
         && d.rating is int
         && d.rating >= 1
         && d.rating <= 5
@@ -203,13 +213,15 @@ service cloud.firestore {
       allow read: if true;
       allow create: if esElMismo(estudianteId)
         && request.resource.data.keys().hasOnly(['estudianteId', 'deporteId',
-                                                 'autor', 'rating', 'comment',
+                                                 'inscripcionId', 'autor',
+                                                 'rating', 'comment',
                                                  'createdAt'])
         && request.resource.data.createdAt == request.time
         && resenaValida(deporteId, estudianteId);
       allow update: if esElMismo(estudianteId)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['autor', 'rating', 'comment', 'updatedAt'])
+             .hasOnly(['inscripcionId', 'autor', 'rating', 'comment',
+                       'updatedAt'])
         && request.resource.data.updatedAt == request.time
         && resenaValida(deporteId, estudianteId);
       allow delete: if esElMismo(estudianteId) || esAdmin();

@@ -8,8 +8,8 @@ import '../services/resena_service.dart';
 /// Controlador (la "C" de MVC) del detalle de una disciplina con sus reseñas.
 ///
 /// Escucha las reseñas en tiempo real, calcula el promedio y deja publicar
-/// o editar la reseña del estudiante que inició sesión, solo si tiene o tuvo
-/// una inscripción en la disciplina.
+/// o editar la reseña del estudiante que inició sesión, solo si tiene una
+/// inscripción activa en la disciplina.
 class DetalleDeporteController extends ChangeNotifier {
   DetalleDeporteController({
     required ResenasDataSource datos,
@@ -28,7 +28,7 @@ class DetalleDeporteController extends ChangeNotifier {
   List<Resena>? _resenas;
   String? _errorCarga;
   bool _verificando = false;
-  bool _participo = false;
+  String? _inscripcionId;
   bool _enviando = false;
   bool _liberado = false;
 
@@ -57,14 +57,15 @@ class DetalleDeporteController extends ChangeNotifier {
 
   bool get haySesion => estudianteId != null;
 
-  /// `true` mientras se comprueba si el estudiante participó en la disciplina.
+  /// `true` mientras se comprueba si el estudiante está inscrito.
   bool get verificando => _verificando;
 
-  /// `true` si el estudiante puede publicar (o editar) su reseña.
-  bool get puedeResenar => haySesion && _participo;
+  /// `true` si el estudiante tiene una inscripción activa en la disciplina
+  /// y, por lo tanto, puede publicar (o editar) su reseña.
+  bool get puedeResenar => haySesion && _inscripcionId != null;
   bool get enviando => _enviando;
 
-  /// Empieza a escuchar las reseñas y comprueba si el estudiante participó.
+  /// Empieza a escuchar las reseñas y comprueba si el estudiante está inscrito.
   void iniciar() {
     _suscripcion?.cancel();
     _errorCarga = null;
@@ -84,21 +85,21 @@ class DetalleDeporteController extends ChangeNotifier {
             notifyListeners();
           },
         );
-    _verificarParticipacion();
+    _verificarInscripcion();
   }
 
-  Future<void> _verificarParticipacion() async {
+  Future<void> _verificarInscripcion() async {
     final id = estudianteId;
     if (id == null) return;
     _verificando = true;
     notifyListeners();
     try {
-      _participo = await _datos.participoEn(
+      _inscripcionId = await _datos.inscripcionActiva(
         estudianteId: id,
         deporteId: deporteId,
       );
     } catch (_) {
-      _participo = false;
+      _inscripcionId = null;
     } finally {
       _verificando = false;
       notifyListeners();
@@ -125,10 +126,13 @@ class DetalleDeporteController extends ChangeNotifier {
     required String comment,
   }) async {
     final id = estudianteId;
-    if (id == null)
+    if (id == null) {
       return 'Inicia sesión como estudiante para dejar una reseña.';
-    if (!_participo) {
-      return 'Solo pueden opinar los estudiantes inscritos en esta disciplina.';
+    }
+    final inscripcionId = _inscripcionId;
+    if (inscripcionId == null) {
+      return 'Solo los estudiantes inscritos en esta disciplina pueden '
+          'dejar una reseña.';
     }
     final error = validar(rating, comment);
     if (error != null) return error;
@@ -140,6 +144,7 @@ class DetalleDeporteController extends ChangeNotifier {
       await _datos.guardar(
         estudianteId: id,
         deporteId: deporteId,
+        inscripcionId: inscripcionId,
         rating: rating,
         comment: comment.trim(),
         esNueva: miResena == null,

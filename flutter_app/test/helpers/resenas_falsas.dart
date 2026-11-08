@@ -14,6 +14,7 @@ class ResenasFalsas implements ResenasDataSource {
   String? fallo;
   int guardados = 0;
   bool? ultimaEsNueva;
+  String? ultimaInscripcion;
 
   void emitir() => _flujo.add(List.of(lista));
   void fallarCarga() => _flujo.addError(StateError('sin red'));
@@ -21,16 +22,19 @@ class ResenasFalsas implements ResenasDataSource {
   @override
   Stream<List<Resena>> resenasDe(String deporteId) => _flujo.stream;
 
+  /// Con [participa] en `true` el estudiante tiene la inscripción activa
+  /// `ins-{estudianteId}`; en `false` no está inscrito o se retiró.
   @override
-  Future<bool> participoEn({
+  Future<String?> inscripcionActiva({
     required String estudianteId,
     required String deporteId,
-  }) async => participa;
+  }) async => participa ? 'ins-$estudianteId' : null;
 
   @override
   Future<void> guardar({
     required String estudianteId,
     required String deporteId,
+    required String inscripcionId,
     required int rating,
     required String comment,
     required bool esNueva,
@@ -38,6 +42,7 @@ class ResenasFalsas implements ResenasDataSource {
     if (fallo != null) throw ResenaException(fallo!);
     guardados++;
     ultimaEsNueva = esNueva;
+    ultimaInscripcion = inscripcionId;
     lista.removeWhere((r) => r.estudianteId == estudianteId);
     lista.insert(
       0,

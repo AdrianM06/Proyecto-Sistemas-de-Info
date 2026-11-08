@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/inscripcion.dart';
 import '../models/resena.dart';
 import 'firestore_service.dart';
 
@@ -22,17 +23,22 @@ abstract class ResenasDataSource {
   /// nuevo cada vez que alguien publica o edita una reseña.
   Stream<List<Resena>> resenasDe(String deporteId);
 
-  /// `true` si el estudiante tiene o tuvo una inscripción en la disciplina.
-  Future<bool> participoEn({
+  /// Id de la inscripción **activa** del estudiante en la disciplina, o
+  /// `null` si no está inscrito o ya se retiró.
+  Future<String?> inscripcionActiva({
     required String estudianteId,
     required String deporteId,
   });
 
   /// Crea la reseña del estudiante ([esNueva]) o actualiza la que ya tenía.
-  /// Lanza [ResenaException] si no se pudo guardar.
+  ///
+  /// [inscripcionId] se guarda en la reseña para que las reglas de Firestore
+  /// comprueben en el servidor que la inscripción es del estudiante, de esta
+  /// disciplina y sigue activa. Lanza [ResenaException] si no se pudo guardar.
   Future<void> guardar({
     required String estudianteId,
     required String deporteId,
+    required String inscripcionId,
     required int rating,
     required String comment,
     required bool esNueva,
@@ -56,22 +62,25 @@ class ResenasService implements ResenasDataSource {
   }
 
   @override
-  Future<bool> participoEn({
+  Future<String?> inscripcionActiva({
     required String estudianteId,
     required String deporteId,
   }) async {
     final resultado = await _firestore.enrollments
         .where('estudianteId', isEqualTo: estudianteId)
         .where('deporteId', isEqualTo: deporteId)
-        .limit(1)
         .get();
-    return resultado.docs.isNotEmpty;
+    for (final doc in resultado.docs) {
+      if (Inscripcion.fromFirestore(doc).estaActiva) return doc.id;
+    }
+    return null;
   }
 
   @override
   Future<void> guardar({
     required String estudianteId,
     required String deporteId,
+    required String inscripcionId,
     required int rating,
     required String comment,
     required bool esNueva,
@@ -83,6 +92,7 @@ class ResenasService implements ResenasDataSource {
         await referencia.set({
           'estudianteId': estudianteId,
           'deporteId': deporteId,
+          'inscripcionId': inscripcionId,
           'autor': autor,
           'rating': rating,
           'comment': comment,
@@ -90,6 +100,7 @@ class ResenasService implements ResenasDataSource {
         });
       } else {
         await referencia.update({
+          'inscripcionId': inscripcionId,
           'autor': autor,
           'rating': rating,
           'comment': comment,
@@ -99,7 +110,8 @@ class ResenasService implements ResenasDataSource {
     } on FirebaseException catch (e) {
       throw ResenaException(
         e.code == 'permission-denied'
-            ? 'No tienes permiso para publicar esta reseña.'
+            ? 'Solo los estudiantes inscritos en esta disciplina pueden '
+                  'dejar una reseña.'
             : 'No se pudo guardar la reseña. Revisa tu conexión e intenta de nuevo.',
       );
     }
