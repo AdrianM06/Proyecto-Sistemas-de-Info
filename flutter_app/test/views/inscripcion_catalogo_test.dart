@@ -29,6 +29,15 @@ class _Inscripciones implements InscripcionesDataSource {
     if (fallo != null) throw InscripcionException(fallo!);
     _inscrito.add(deporte.id);
   }
+
+  @override
+  Future<void> cancelar({
+    required String estudianteId,
+    required String deporteId,
+  }) async {
+    if (fallo != null) throw InscripcionException(fallo!);
+    _inscrito.remove(deporteId);
+  }
 }
 
 void main() {

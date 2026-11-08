@@ -144,13 +144,12 @@ class AppRoutes {
         );
       case perfilAdmin:
         return _rutaAdmin(settings, construirPerfilCuenta);
-      case buscador:case buscador:
-        final sesion = argumentos as SesionUsuario?;
+      case buscador:
+        final sesion = argumentos is SesionUsuario ? argumentos : null;
         return _ruta(
           settings,
           (_) => BuscadorScreen.conFirestore(estudianteId: sesion?.uid),
         );
-        return _ruta(settings, (_) => BuscadorScreen.conFirestore());
       case perfil:
         return _ruta(settings, (_) => ProfileView());
       case adminDashboard:
