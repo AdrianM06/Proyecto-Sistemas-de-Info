@@ -42,8 +42,8 @@ class FirestoreService {
   /// Índice de cédulas: `cedulas/{V-12345678}` -> `{uid}`.
   CollectionReference<Map<String, dynamic>> get cedulas =>
       db.collection('cedulas');
-}
 
-CollectionReference> reviewsOf(String sportId) {
-    return sports.doc(sportId).collection('reviews');
+  /// Reseñas de una disciplina: `sports/{deporteId}/reviews/{estudianteId}`.
+  CollectionReference<Map<String, dynamic>> reviewsOf(String deporteId) =>
+      sports.doc(deporteId).collection('reviews');
 }

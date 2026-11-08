@@ -7,6 +7,7 @@ import '../../services/buscador_service.dart';
 import '../../services/inscripcion_service.dart';
 import '../entrenador/widgets/entrenador_widgets.dart';
 import '../theme/saman_colors.dart';
+import 'detalle_deporte_view.dart';
 import 'widgets/tarjeta_deporte.dart';
 
 class BuscadorScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class BuscadorScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.onSeleccionar,
+    this.paginaDeResenas,
   });
 
   factory BuscadorScreen.conFirestore({
@@ -49,6 +51,10 @@ class BuscadorScreen extends StatefulWidget {
 
   final BuscadorController controller;
   final void Function(Deporte deporte)? onSeleccionar;
+
+  /// Página que abre "Ver reseñas". Por defecto, [DetalleDeporteView]
+  /// conectada a Firestore; las pruebas pasan otra.
+  final Widget Function(Deporte deporte, String? estudianteId)? paginaDeResenas;
 
   @override
   State<BuscadorScreen> createState() => _BuscadorScreenState();
@@ -227,6 +233,20 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
+  /// Abre el detalle de la disciplina con sus reseñas y su promedio.
+  void _abrirResenas(Deporte deporte) {
+    final pagina = widget.paginaDeResenas ??
+        (deporte, estudianteId) => DetalleDeporteView.conFirebase(
+              deporte: deporte,
+              estudianteId: estudianteId,
+            );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => pagina(deporte, _controller.estudianteId),
+      ),
+    );
+  }
+
   void _mostrarDetalle(Deporte deporte) {
     final onSeleccionar = widget.onSeleccionar;
     final aviso = ValueNotifier<_Aviso?>(null);
@@ -307,6 +327,17 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                       'Cupos totales: ${deporte.cupos} · '
                       'Inscritos: ${_controller.inscritosDe(deporte)}',
                       style: const TextStyle(color: SamanColors.neutro500),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      key: const Key('boton-ver-resenas'),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      onPressed: () {
+                        Navigator.of(contextoHoja).pop();
+                        _abrirResenas(deporte);
+                      },
+                      icon: const Icon(Icons.star_outline_rounded),
+                      label: const Text('Ver reseñas y valoraciones'),
                     ),
                     if (onSeleccionar != null || _controller.permiteInscribir) ...[
                       const SizedBox(height: 20),

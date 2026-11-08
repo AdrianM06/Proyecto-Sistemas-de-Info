@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../models/deporte.dart';
 import '../../theme/saman_colors.dart';
-import '../admin/detalle_deporte_view.dart';
 
 /// Tarjeta de un deporte en los resultados del buscador.
 class TarjetaDeporte extends StatelessWidget {
@@ -126,4 +125,3 @@ class _Dato extends StatelessWidget {
     );
   }
 }
-

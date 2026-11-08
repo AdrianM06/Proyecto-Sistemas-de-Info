@@ -1,91 +1,154 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../models/resena.dart';
 import '../services/resena_service.dart';
-import '../services/firestore_service.dart';
 
+/// Controlador (la "C" de MVC) del detalle de una disciplina con sus reseñas.
+///
+/// Escucha las reseñas en tiempo real, calcula el promedio y deja publicar
+/// o editar la reseña del estudiante que inició sesión, solo si tiene o tuvo
+/// una inscripción en la disciplina.
 class DetalleDeporteController extends ChangeNotifier {
   DetalleDeporteController({
-    required this.deporteId,
-    required this.estudianteId,
     required ResenasDataSource datos,
+    required this.deporteId,
+    this.estudianteId,
   }) : _datos = datos;
 
-  final String deporteId;
-  final String estudianteId; // El uid del usuario logueado[cite: 2]
   final ResenasDataSource _datos;
+  final String deporteId;
 
-  StreamSubscription<List<Resena>>? _suscripcionResenas;
+  /// Uid del estudiante con sesión; `null` si nadie inició sesión como
+  /// estudiante (entonces solo se pueden leer las reseñas).
+  final String? estudianteId;
+
+  StreamSubscription<List<Resena>>? _suscripcion;
   List<Resena>? _resenas;
-  
+  String? _errorCarga;
+  bool _verificando = false;
+  bool _participo = false;
   bool _enviando = false;
-  String? _error;
   bool _liberado = false;
 
-  List<Resena>? get resenas => _resenas;
-  bool get cargando => _resenas == null && _error == null;
-  bool get enviando => _enviando;
-  String? get error => _error;
+  bool get cargando => _resenas == null && _errorCarga == null;
+  String? get errorCarga => _errorCarga;
+  List<Resena> get resenas => List.unmodifiable(_resenas ?? const <Resena>[]);
+  int get cantidad => _resenas?.length ?? 0;
 
-  /// Inicia la escucha en tiempo real de las resenas.
-  void iniciar() {
-    _suscripcionResenas?.cancel();
-    _error = null;
-    notifyListeners();
-
-    _suscripcionResenas = _datos.resenasDe(deporteId).listen(
-      (lista) {
-        _resenas = lista;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'No se pudieron cargar las resenas.';
-        notifyListeners();
-      },
-    );
+  /// Promedio de estrellas, o `null` si todavía no hay reseñas.
+  double? get promedio {
+    final lista = _resenas;
+    if (lista == null || lista.isEmpty) return null;
+    final suma = lista.fold<int>(0, (total, resena) => total + resena.rating);
+    return suma / lista.length;
   }
 
-  /// Lógica de negocio: Verifica inscripción y publica la resena.
-  Future<bool> publicarResena(int calificacion, String comentario) async {
-    if (comentario.trim().isEmpty) {
-      _error = 'El comentario no puede estar vacío.';
-      notifyListeners();
-      return false;
+  /// La reseña que ya publicó el estudiante, si existe.
+  Resena? get miResena {
+    final id = estudianteId;
+    if (id == null) return null;
+    for (final resena in _resenas ?? const <Resena>[]) {
+      if (resena.estudianteId == id) return resena;
     }
+    return null;
+  }
+
+  bool get haySesion => estudianteId != null;
+
+  /// `true` mientras se comprueba si el estudiante participó en la disciplina.
+  bool get verificando => _verificando;
+
+  /// `true` si el estudiante puede publicar (o editar) su reseña.
+  bool get puedeResenar => haySesion && _participo;
+  bool get enviando => _enviando;
+
+  /// Empieza a escuchar las reseñas y comprueba si el estudiante participó.
+  void iniciar() {
+    _suscripcion?.cancel();
+    _errorCarga = null;
+    notifyListeners();
+    _suscripcion = _datos
+        .resenasDe(deporteId)
+        .listen(
+          (lista) {
+            _resenas = lista;
+            _errorCarga = null;
+            notifyListeners();
+          },
+          onError: (Object _) {
+            _errorCarga =
+                'No se pudieron cargar las reseñas. '
+                'Revisa tu conexión e intenta de nuevo.';
+            notifyListeners();
+          },
+        );
+    _verificarParticipacion();
+  }
+
+  Future<void> _verificarParticipacion() async {
+    final id = estudianteId;
+    if (id == null) return;
+    _verificando = true;
+    notifyListeners();
+    try {
+      _participo = await _datos.participoEn(
+        estudianteId: id,
+        deporteId: deporteId,
+      );
+    } catch (_) {
+      _participo = false;
+    } finally {
+      _verificando = false;
+      notifyListeners();
+    }
+  }
+
+  /// Reglas del formulario. Devuelve el primer error o `null` si es válido.
+  static String? validar(int rating, String comment) {
+    if (rating < Resena.ratingMinimo || rating > Resena.ratingMaximo) {
+      return 'Elige de 1 a 5 estrellas.';
+    }
+    final texto = comment.trim();
+    if (texto.isEmpty) return 'Escribe un comentario.';
+    if (texto.length > Resena.largoMaximo) {
+      return 'El comentario no puede pasar de ${Resena.largoMaximo} caracteres.';
+    }
+    return null;
+  }
+
+  /// Publica la reseña del estudiante o actualiza la que ya tenía.
+  /// Devuelve el mensaje de error o `null` si se guardó.
+  Future<String?> publicar({
+    required int rating,
+    required String comment,
+  }) async {
+    final id = estudianteId;
+    if (id == null)
+      return 'Inicia sesión como estudiante para dejar una reseña.';
+    if (!_participo) {
+      return 'Solo pueden opinar los estudiantes inscritos en esta disciplina.';
+    }
+    final error = validar(rating, comment);
+    if (error != null) return error;
+    if (_enviando) return null;
 
     _enviando = true;
-    _error = null;
     notifyListeners();
-
     try {
-      // 1. Validar regla de negocio: ¿Está inscrito?
-      // Consultamos la colección 'enrollments' usando FirestoreService.instance[cite: 6]
-      final inscripciones = await FirestoreService.instance.enrollments
-          .where('estudianteId', isEqualTo: estudianteId)
-          .where('deporteId', isEqualTo: deporteId)
-          .where('estadoActivo', isEqualTo: true)
-          .get();
-
-      if (inscripciones.docs.isEmpty) {
-        _error = 'Debes estar inscrito en esta disciplina para dejar una resena.';
-        return false;
-      }
-
-      // 2. Si está inscrito, crear el modelo y guardar
-      final nuevaResena = Resena(
-        id: '', // Firestore lo generará al usar add() en el Service
-        estudianteId: estudianteId,
-        calificacion: calificacion,
-        comentario: comentario.trim(),
-        fecha: DateTime.now(),
+      await _datos.guardar(
+        estudianteId: id,
+        deporteId: deporteId,
+        rating: rating,
+        comment: comment.trim(),
+        esNueva: miResena == null,
       );
-
-      await _datos.agregarResena(deporteId, nuevaResena);
-      return true;
-
-    } catch (e) {
-      _error = 'Error al publicar la resena. Intenta de nuevo.';
-      return false;
+      return null;
+    } on ResenaException catch (e) {
+      return e.mensaje;
+    } catch (_) {
+      return 'No se pudo guardar la reseña. Intenta de nuevo.';
     } finally {
       _enviando = false;
       notifyListeners();
@@ -93,14 +156,14 @@ class DetalleDeporteController extends ChangeNotifier {
   }
 
   @override
-  void dispose() {
-    _liberado = true;
-    _suscripcionResenas?.cancel();
-    super.dispose();
+  void notifyListeners() {
+    if (!_liberado) super.notifyListeners();
   }
 
   @override
-  void notifyListeners() {
-    if (!_liberado) super.notifyListeners();
+  void dispose() {
+    _liberado = true;
+    _suscripcion?.cancel();
+    super.dispose();
   }
 }

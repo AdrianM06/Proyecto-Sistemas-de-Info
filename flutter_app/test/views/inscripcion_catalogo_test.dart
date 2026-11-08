@@ -131,7 +131,7 @@ void main() {
   });
 
   group('pantalla', () {
-    testWidgets('al inscribirse el botón pasa a "Inscrito" y se deshabilita', (
+    testWidgets('al inscribirse se muestra el aviso y el botón para cancelar', (
       tester,
     ) async {
       inscripciones = _Inscripciones();
@@ -147,14 +147,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(inscripciones.llamadas, 1);
-      expect(textoDelBoton(tester), 'Inscrito');
+      expect(find.byKey(const Key('boton-inscribirme')), findsNothing);
       expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('boton-inscribirme')))
-            .onPressed,
-        isNull,
+        find.text('Actualmente estás inscrito en esta disciplina.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('boton-cancelar-inscripcion-catalogo')),
+        findsOneWidget,
       );
       expect(find.byKey(const Key('aviso-inscripcion')), findsOneWidget);
+    });
+
+    testWidgets('cancelar la inscripción desde el catálogo la quita', (
+      tester,
+    ) async {
+      inscripciones = _Inscripciones(iniciales: {'AJE-01'});
+      await abrirDetalle(tester, 'AJE-01');
+
+      await tester.tap(
+        find.byKey(const Key('boton-cancelar-inscripcion-catalogo')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sí, retirarme'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Tu inscripción ha sido cancelada con éxito.'),
+        findsOneWidget,
+      );
+      expect(textoDelBoton(tester), 'Inscribirme');
     });
 
     testWidgets('cancelar la confirmación no inscribe', (tester) async {
@@ -170,13 +192,17 @@ void main() {
       expect(textoDelBoton(tester), 'Inscribirme');
     });
 
-    testWidgets('un deporte donde ya está inscrito abre con "Inscrito"', (
+    testWidgets('un deporte donde ya está inscrito abre con el aviso', (
       tester,
     ) async {
       inscripciones = _Inscripciones(iniciales: {'AJE-01'});
       await abrirDetalle(tester, 'AJE-01');
 
-      expect(textoDelBoton(tester), 'Inscrito');
+      expect(find.byKey(const Key('boton-inscribirme')), findsNothing);
+      expect(
+        find.text('Actualmente estás inscrito en esta disciplina.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('si falla la inscripción muestra el motivo y deja el botón', (

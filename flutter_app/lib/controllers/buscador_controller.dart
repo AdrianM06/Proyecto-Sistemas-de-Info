@@ -56,6 +56,8 @@ class BuscadorController extends ChangeNotifier {
   Set<String> _misDeportes = const {};
   String? _inscribiendo;
 
+  /// Uid del estudiante que usa el catálogo, o `null` sin sesión.
+  String? get estudianteId => _estudianteId;
   bool get permiteInscribir => _inscripciones != null && _estudianteId != null;
   bool estaInscrito(Deporte deporte) => _misDeportes.contains(deporte.id);
   String? get inscribiendo => _inscribiendo;

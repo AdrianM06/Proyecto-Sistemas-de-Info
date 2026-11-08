@@ -179,6 +179,42 @@ service cloud.firestore {
       allow write: if esPersonal();
     }
 
+    // ------------------------------------------------------------------ reseñas
+
+    // Reseñas: sports/{deporteId}/reviews/{estudianteId}. Las lee cualquiera
+    // (el catálogo es público). Cada estudiante escribe solo la suya, porque
+    // el id del documento es su uid. Que haya participado en la disciplina se
+    // revisa en la app: las reglas no pueden buscar en `enrollments`.
+    function resenaValida(deporteId, estudianteId) {
+      let d = request.resource.data;
+      return d.estudianteId == estudianteId
+        && d.deporteId == deporteId
+        && d.rating is int
+        && d.rating >= 1
+        && d.rating <= 5
+        && d.comment is string
+        && d.comment.size() >= 1
+        && d.comment.size() <= 500
+        && d.autor is string
+        && d.autor.size() <= 100;
+    }
+
+    match /sports/{deporteId}/reviews/{estudianteId} {
+      allow read: if true;
+      allow create: if esElMismo(estudianteId)
+        && request.resource.data.keys().hasOnly(['estudianteId', 'deporteId',
+                                                 'autor', 'rating', 'comment',
+                                                 'createdAt'])
+        && request.resource.data.createdAt == request.time
+        && resenaValida(deporteId, estudianteId);
+      allow update: if esElMismo(estudianteId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['autor', 'rating', 'comment', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && resenaValida(deporteId, estudianteId);
+      allow delete: if esElMismo(estudianteId) || esAdmin();
+    }
+
     // Todo lo demás queda cerrado.
     match /{document=**} {
       allow read, write: if false;

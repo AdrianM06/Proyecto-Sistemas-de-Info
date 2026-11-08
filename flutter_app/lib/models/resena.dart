@@ -1,56 +1,69 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Importa tus conversores tal como lo haces en usuario.dart y deporte.dart
-import 'conversores.dart'; 
+import 'conversores.dart';
 
-/// Modelo de un documento de la subcolección `reviews` en Firestore.
+/// Reseña de un estudiante sobre una disciplina.
+///
+/// Se guarda en `sports/{deporteId}/reviews/{estudianteId}`: el id del
+/// documento es el uid del autor, así cada estudiante tiene como máximo una
+/// reseña por disciplina (si vuelve a publicar, la actualiza).
 class Resena {
   const Resena({
-    required this.id,
     required this.estudianteId,
-    required this.calificacion,
-    required this.comentario,
-    required this.fecha,
+    required this.deporteId,
+    required this.autor,
+    required this.rating,
+    required this.comment,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  final String id;
-  final String estudianteId; // Para vincularlo con el autor
-  final int calificacion;    // Ej. 1 a 5 estrellas
-  final String comentario;
-  final DateTime fecha;      // Cuándo se publicó
+  static const int ratingMinimo = 1;
+  static const int ratingMaximo = 5;
 
-  /// Patrón Factory Method: crea una [Resena] a partir de un mapa, 
-  /// usando los conversores de tu proyecto.
-  factory Resena.fromJson(Map<String, dynamic> json, {required String id}) {
+  /// Largo máximo del comentario (igual que en `firestore.rules`).
+  static const int largoMaximo = 500;
+
+  final String estudianteId;
+  final String deporteId;
+
+  /// Nombre del autor al momento de publicar. Se guarda en la reseña porque
+  /// las reglas no dejan a un estudiante leer el perfil de otro.
+  final String autor;
+
+  /// Valoración de 1 a 5 estrellas.
+  final int rating;
+  final String comment;
+
+  /// `null` mientras Firestore no confirma la hora del servidor.
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// Patrón Factory Method: crea una [Resena] a partir del mapa guardado en
+  /// Firestore, tolerando campos faltantes.
+  factory Resena.fromJson(
+    Map<String, dynamic> json, {
+    required String id,
+    String deporteId = '',
+  }) {
+    final rating = enteroDe(json['rating'], porDefecto: ratingMinimo);
     return Resena(
-      id: id,
-      // Se usan los conversores textoDe y enteroDe que ya tienes en conversores.dart
-      estudianteId: textoDe(json['estudianteId']),
-      calificacion: enteroDe(json['calificacion'], porDefecto: 5), 
-      comentario: textoDe(json['comentario']),
-      // Firestore guarda las fechas como Timestamp, debemos pasarlo a DateTime de Dart
-      fecha: (json['fecha'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      estudianteId: textoDe(json['estudianteId'], porDefecto: id),
+      deporteId: textoDe(json['deporteId'], porDefecto: deporteId),
+      autor: textoDe(json['autor'], porDefecto: 'Estudiante'),
+      rating: rating.clamp(ratingMinimo, ratingMaximo),
+      comment: textoDe(json['comment']),
+      createdAt: fechaDe(json['createdAt']),
+      updatedAt: fechaDe(json['updatedAt']),
     );
   }
 
-  /// Crea una [Resena] directamente desde un documento de Firestore.
-  factory Resena.fromFirestore(DocumentSnapshot doc) {
-  final data = doc.data() as Map<String, dynamic>;
-  return Resena(
-    id: doc.id,
-    estudianteId: data['estudianteId'] ?? '',
-    calificacion: data['calificacion'] ?? 5,
-    comentario: data['comentario'] ?? '',
-    fecha: (data['fecha'] as Timestamp).toDate(),
-   );
+  /// Crea una [Resena] desde un documento de `sports/{id}/reviews`.
+  factory Resena.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    return Resena.fromJson(
+      doc.data() ?? const {},
+      id: doc.id,
+      deporteId: doc.reference.parent.parent?.id ?? '',
+    );
   }
-
-  /// Convierte el objeto a un mapa para guardarlo en la base de datos.
-  Map<String, dynamic> toJson() => {
-        'estudianteId': estudianteId,
-        'calificacion': calificacion,
-        'comentario': comentario,
-        // Convertimos el DateTime de Dart de vuelta a Timestamp para Firebase
-        'fecha': Timestamp.fromDate(fecha), 
-      };
 }
