@@ -178,6 +178,54 @@ void main() {
       );
     }
 
+    testWidgets(
+      'en pantalla ancha las disciplinas van al lado del calendario y el '
+      'catálogo está en la barra superior',
+      (tester) async {
+        await abrir(tester);
+        datos.deportes_([_futbol, _ajedrez]);
+        datos.inscritos({'fut'});
+        await tester.pump();
+
+        final calendario = tester.getRect(
+          find.byKey(const Key('columna-calendario')),
+        );
+        final disciplinas = tester.getRect(
+          find.byKey(const Key('columna-disciplinas')),
+        );
+        expect(disciplinas.left, greaterThan(calendario.right));
+        expect(disciplinas.top, calendario.top);
+
+        final catalogo = find.byKey(const Key('inicio-ver-catalogo'));
+        expect(
+          find.descendant(of: find.byType(AppBar), matching: catalogo),
+          findsOneWidget,
+        );
+        expect(find.text('Explorar catálogo'), findsOneWidget);
+      },
+    );
+
+    testWidgets('en el celular las disciplinas quedan debajo del calendario', (
+      tester,
+    ) async {
+      await abrir(tester);
+      tester.view.physicalSize = const Size(390, 2400);
+      datos.deportes_([_futbol, _ajedrez]);
+      datos.inscritos({'fut'});
+      await tester.pump();
+
+      final calendario = tester.getRect(
+        find.byKey(const Key('columna-calendario')),
+      );
+      final disciplinas = tester.getRect(
+        find.byKey(const Key('columna-disciplinas')),
+      );
+      expect(disciplinas.top, greaterThan(calendario.bottom));
+      // En pantallas angostas el botón del catálogo es solo un ícono.
+      expect(find.text('Explorar catálogo'), findsNothing);
+      expect(find.byKey(const Key('inicio-ver-catalogo')), findsOneWidget);
+    });
+
     testWidgets('sin inscripciones invita a inscribirse', (tester) async {
       await abrir(tester);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

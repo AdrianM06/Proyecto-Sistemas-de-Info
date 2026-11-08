@@ -29,7 +29,12 @@ class EstudianteScaffold extends StatelessWidget {
     this.onPerfil,
     this.onPaginaPrincipal,
     this.onCerrarSesion,
+    this.acciones = const [],
   });
+
+  /// Botones extra de la barra superior, a la izquierda de la foto de
+  /// perfil (por ejemplo, "Explorar catálogo" en el Inicio).
+  final List<Widget> acciones;
 
   /// Sección que se está viendo (queda resaltada en el menú).
   final SeccionEstudiante seccion;
@@ -76,6 +81,7 @@ class EstudianteScaffold extends StatelessWidget {
           ),
         ),
         actions: [
+          ...acciones,
           IconButton(
             key: const Key('avatar-perfil'),
             tooltip: 'Mi perfil',
