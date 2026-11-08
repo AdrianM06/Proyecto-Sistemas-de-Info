@@ -98,11 +98,12 @@ class EntrenadorService implements EntrenadorDataSource {
     return historial;
   }
 
+  /// Reemplaza el documento de la sesión completo (sin `merge`), para que
+  /// `horasPresentes` no conserve horas de estudiantes que ahora están
+  /// ausentes.
   @override
   Future<void> guardarAsistencia(Asistencia asistencia) {
-    return _firestore.attendances
-        .doc(asistencia.id)
-        .set(asistencia.toJson(), SetOptions(merge: true));
+    return _firestore.attendances.doc(asistencia.id).set(asistencia.toJson());
   }
 }
 

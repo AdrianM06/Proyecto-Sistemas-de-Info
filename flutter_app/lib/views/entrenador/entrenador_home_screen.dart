@@ -4,6 +4,7 @@ import '../../controllers/entrenador_controller.dart';
 import '../../models/deporte.dart';
 import '../../services/entrenador_service.dart';
 import '../theme/saman_colors.dart';
+import 'detalle_asistencia_estudiante_view.dart';
 import 'formato.dart';
 import 'historial_asistencia_view.dart';
 import 'nomina_view.dart';
@@ -395,6 +396,12 @@ class _PanelView extends StatelessWidget {
                 children: [
                   for (final estudiante in enRiesgo)
                     ListTile(
+                      key: Key('riesgo-${estudiante.uid}'),
+                      onTap: () => abrirDetalleAsistencia(
+                        context,
+                        controller,
+                        estudiante,
+                      ),
                       leading: AvatarIniciales(usuario: estudiante),
                       title: Text(
                         estudiante.nombreCompleto,

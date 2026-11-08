@@ -255,6 +255,12 @@ class AuthService {
 
   /// Lee el perfil `users/{uid}` y arma la sesión. Si el perfil no existe,
   /// el usuario se trata como estudiante.
+  ///
+  /// `estadoActivo` **no** bloquea el inicio de sesión: un estudiante
+  /// deshabilitado por el administrador entra a la plataforma igual que los
+  /// demás. Ese campo solo le impide inscribirse en disciplinas
+  /// (ver `InscripcionService.inscribir`). Solo una cuenta deshabilitada en
+  /// Firebase Authentication (`user-disabled`) no puede entrar.
   Future<SesionUsuario> obtenerSesion(User user) async {
     final doc = await _users.doc(user.uid).get();
     final datos = doc.data() ?? const <String, dynamic>{};
