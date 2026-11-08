@@ -244,20 +244,29 @@ class EntrenadorController extends ChangeNotifier {
       _marcas.clear();
       return;
     }
+    // Las tres consultas son independientes: se piden a la vez para no
+    // esperar una ronda de red por cada una.
     final resultados = await Future.wait([
       _datos.nominaDelDeporte(deporte.id),
       _datos.historialDeAsistencia(deporte.id),
+      _datos.asistenciaDelDia(deporte.id, _fecha),
     ]);
     _nomina = resultados[0] as List<Usuario>;
     _historial = resultados[1] as List<Asistencia>;
-    await _cargarAsistenciaDelDia();
+    _aplicarAsistencia(resultados[2] as Asistencia?);
   }
 
   Future<void> _cargarAsistenciaDelDia() async {
-    _marcas.clear();
     final deporte = _deporteActual;
-    if (deporte == null) return;
-    final guardada = await _datos.asistenciaDelDia(deporte.id, _fecha);
+    if (deporte == null) {
+      _marcas.clear();
+      return;
+    }
+    _aplicarAsistencia(await _datos.asistenciaDelDia(deporte.id, _fecha));
+  }
+
+  void _aplicarAsistencia(Asistencia? guardada) {
+    _marcas.clear();
     if (guardada == null) return;
     for (final estudiante in _nomina) {
       _marcas[estudiante.uid] = guardada.estaPresente(estudiante.uid);

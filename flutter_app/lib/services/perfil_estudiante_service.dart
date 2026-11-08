@@ -104,7 +104,11 @@ class PerfilEstudianteService implements PerfilEstudianteDataSource {
       throw StateError('No hay una sesión abierta.');
     }
 
-    final doc = await _firestore.users.doc(user.uid).get();
+    // El perfil y las inscripciones no dependen entre sí: se piden a la vez.
+    final (doc, consulta) = await (
+      _firestore.users.doc(user.uid).get(),
+      _firestore.enrollments.where('estudianteId', isEqualTo: user.uid).get(),
+    ).wait;
     final datos = doc.data() ?? const <String, dynamic>{};
     final usuario = _usuarioConNombre(
       Usuario.fromJson(datos, uid: user.uid),
@@ -112,10 +116,7 @@ class PerfilEstudianteService implements PerfilEstudianteDataSource {
       user.email ?? '',
     );
 
-    final inscripciones = (await _firestore.enrollments
-            .where('estudianteId', isEqualTo: user.uid)
-            .get())
-        .docs
+    final inscripciones = consulta.docs
         .map(Inscripcion.fromFirestore)
         .where((inscripcion) => inscripcion.estaActiva)
         .toList();

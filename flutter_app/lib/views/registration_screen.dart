@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
 import '../utils/app_validators.dart';
+import '../utils/imagenes.dart';
 import 'widgets/boton_volver_inicio.dart';
 
 const _panelGray = Color(0xFFD9D9D9);
@@ -112,6 +113,7 @@ class _RegistrationHero extends StatelessWidget {
                 'assets/images/unimet_sports_logo.png',
                 width: 184,
                 height: 68,
+                cacheWidth: pixelesFisicos(context, 184),
                 fit: BoxFit.cover,
               ),
             ),
