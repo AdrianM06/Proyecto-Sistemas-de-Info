@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../models/deporte.dart';
+import '../../services/baja_disciplina_service.dart';
 import '../../services/gestion_entrenadores_service.dart';
 import 'crear_deporte_view.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFF58220);
+const _rojo = Color(0xFFC62828);
 
 /// Gestión de disciplinas del panel del administrador
 /// (ruta `/admin/disciplinas`, solo para el rol admin).
@@ -13,15 +15,28 @@ const _naranja = Color(0xFFF58220);
 /// Lista todas las disciplinas en tiempo real, con buscador. Al tocar
 /// "Editar" se abre el formulario de la disciplina, donde se cambian el
 /// nombre, los horarios, el lugar, los cupos, las etiquetas y los
-/// entrenadores (con la validación de choques de horario).
+/// entrenadores (con la validación de choques de horario). "Eliminar" borra la
+/// disciplina después de advertir cuántos estudiantes inscritos la perderán.
 class GestionDisciplinasView extends StatefulWidget {
-  const GestionDisciplinasView({super.key, required this.datos, this.onEditar});
+  const GestionDisciplinasView({
+    super.key,
+    required this.datos,
+    this.onEditar,
+    this.baja,
+  });
 
   /// Vista conectada a Firestore.
   factory GestionDisciplinasView.conFirebase({Key? key}) =>
-      GestionDisciplinasView(key: key, datos: GestionEntrenadoresService());
+      GestionDisciplinasView(
+        key: key,
+        datos: GestionEntrenadoresService(),
+        baja: BajaDisciplinaService(),
+      );
 
   final GestionEntrenadoresDataSource datos;
+
+  /// Elimina disciplinas. Si es `null`, no aparece el botón "Eliminar".
+  final BajaDisciplinaDataSource? baja;
 
   /// Abre el formulario de edición. Por defecto, [CrearDeporteView] con la
   /// disciplina; las pruebas pasan otro.
@@ -35,6 +50,14 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
   late final Stream<List<Deporte>> _deportes;
   final _busqueda = TextEditingController();
   String _texto = '';
+
+  /// Ids de las disciplinas en proceso de eliminación (revisando
+  /// inscripciones, esperando confirmación o borrando): su botón se desactiva.
+  final Set<String> _ocupadas = {};
+
+  /// Ids de las disciplinas que se están borrando en Firestore (muestran un
+  /// indicador de carga).
+  final Set<String> _eliminando = {};
 
   @override
   void initState() {
@@ -59,6 +82,108 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
         builder: (_) => CrearDeporteView(deporte: deporte),
       ),
     );
+  }
+
+  void _avisar(String texto, {Color? color}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(backgroundColor: color, content: Text(texto)));
+  }
+
+  Future<void> _eliminar(Deporte deporte) async {
+    final baja = widget.baja;
+    if (baja == null || _ocupadas.contains(deporte.id)) return;
+    setState(() => _ocupadas.add(deporte.id));
+    try {
+      int? conteo;
+      try {
+        conteo = await baja.inscripcionesActivas(deporte.id);
+      } catch (_) {
+        conteo = null;
+      }
+      if (!mounted) return;
+      if (conteo == null) {
+        _avisar(
+          'No se pudo revisar las inscripciones. Intenta de nuevo.',
+          color: _rojo,
+        );
+        return;
+      }
+      final int inscritos = conteo;
+
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (contexto) => AlertDialog(
+          key: const Key('dialogo-eliminar-disciplina'),
+          icon: const Icon(Icons.warning_amber_rounded, color: _rojo, size: 36),
+          title: Text('¿Eliminar ${deporte.nombre}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                inscritos == 0
+                    ? 'No tiene estudiantes inscritos.'
+                    : inscritos == 1
+                    ? '1 estudiante inscrito perderá su cupo.'
+                    : '$inscritos estudiantes inscritos perderán su cupo.',
+                key: const Key('aviso-inscritos-eliminar'),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: inscritos == 0 ? null : _rojo,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'También se borran sus reseñas. Las asistencias ya tomadas '
+                'se conservan como historial. Esta acción no se puede '
+                'deshacer.',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(contexto).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              key: const Key('confirmar-eliminar-disciplina'),
+              style: FilledButton.styleFrom(backgroundColor: _rojo),
+              onPressed: () => Navigator.of(contexto).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmar != true || !mounted) return;
+
+      setState(() => _eliminando.add(deporte.id));
+      try {
+        await baja.eliminar(deporte.id);
+        if (mounted) {
+          _avisar(
+            'Se eliminó ${deporte.nombre}.',
+            color: Colors.green[700],
+          );
+        }
+      } on BajaDisciplinaException catch (e) {
+        if (mounted) _avisar(e.mensaje, color: _rojo);
+      } catch (_) {
+        if (mounted) {
+          _avisar(
+            'No se pudo eliminar la disciplina. Intenta de nuevo.',
+            color: _rojo,
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _ocupadas.remove(deporte.id);
+          _eliminando.remove(deporte.id);
+        });
+      }
+    }
   }
 
   static String _plano(String texto) {
@@ -207,6 +332,24 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Editar'),
                 ),
+                if (widget.baja != null)
+                  _eliminando.contains(deporte.id)
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : IconButton(
+                          key: Key('eliminar-disciplina-${deporte.id}'),
+                          tooltip: 'Eliminar disciplina',
+                          onPressed: _ocupadas.contains(deporte.id)
+                              ? null
+                              : () => _eliminar(deporte),
+                          icon: const Icon(Icons.delete_outline, color: _rojo),
+                        ),
               ],
             ),
             const SizedBox(height: 10),
