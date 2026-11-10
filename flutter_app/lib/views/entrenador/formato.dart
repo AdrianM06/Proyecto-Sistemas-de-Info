@@ -38,3 +38,32 @@ String fechaLarga(DateTime fecha) =>
 /// Ejemplo: 0.875 → "88 %". Devuelve "—" si no hay dato.
 String porcentaje(double? valor) =>
     valor == null ? '—' : '${(valor * 100).round()} %';
+
+const _mesesLargos = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/// Ejemplo: "noviembre 2026".
+String mesYAnio(DateTime fecha) =>
+    '${_mesesLargos[fecha.month - 1]} ${fecha.year}';
+
+/// Ejemplo: 16:05 → "4:05 pm".
+String hora(DateTime fecha) {
+  final sufijo = fecha.hour < 12 ? 'am' : 'pm';
+  final hora12 = fecha.hour % 12 == 0 ? 12 : fecha.hour % 12;
+  return '$hora12:${fecha.minute.toString().padLeft(2, '0')} $sufijo';
+}
+
+/// Ejemplo: "Mié 21 oct, 4:05 pm".
+String fechaYHora(DateTime fecha) => '${fechaCorta(fecha)}, ${hora(fecha)}';

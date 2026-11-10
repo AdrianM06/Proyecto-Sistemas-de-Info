@@ -1,19 +1,105 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../controllers/gestion_estudiantes_controller.dart';
 import '../../models/usuario.dart';
-import '../../services/firestore_service.dart';
+import '../../services/gestion_estudiantes_service.dart';
+import '../widgets/avatar_usuario.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFFF8C2A);
 
-class GestionEstudiantesView extends StatelessWidget {
-  const GestionEstudiantesView({super.key});
+/// Gestión de estudiantes del panel del administrador
+/// (ruta `/admin/estudiantes`, solo para el rol admin).
+///
+/// Lista a los estudiantes en tiempo real, con buscador, y un interruptor
+/// para habilitarlos o deshabilitarlos (`users/{uid}.estadoActivo`). Un
+/// estudiante deshabilitado puede iniciar sesión, pero no inscribirse.
+class GestionEstudiantesView extends StatefulWidget {
+  const GestionEstudiantesView({super.key, this.controller});
 
-  Future<void> _cambiarEstado(String uid, bool nuevoEstado) async {
-    await FirestoreService.instance.users.doc(uid).update({
-      'estadoActivo': nuevoEstado,
-    });
+  /// Controlador para las pruebas. Por defecto se conecta a Firestore. La
+  /// vista lo libera al cerrarse.
+  final GestionEstudiantesController? controller;
+
+  @override
+  State<GestionEstudiantesView> createState() => _GestionEstudiantesViewState();
+}
+
+class _GestionEstudiantesViewState extends State<GestionEstudiantesView> {
+  late final GestionEstudiantesController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        widget.controller ??
+        GestionEstudiantesController(datos: GestionEstudiantesService());
+    _controller.iniciar();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Deshabilitar retira al estudiante de sus disciplinas, así que se pide
+  /// confirmación antes.
+  Future<bool> _confirmarDeshabilitar(Usuario estudiante) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (contextoDialogo) => AlertDialog(
+        key: const Key('dialogo-deshabilitar'),
+        icon: Icon(Icons.block, color: Colors.red[700], size: 36),
+        title: const Text('Deshabilitar estudiante'),
+        content: Text(
+          '¿Deshabilitar a ${estudiante.nombreCompleto}?\n\n'
+          'Se le retirará de inmediato de todas las disciplinas en las que '
+          'está inscrito y no podrá inscribirse de nuevo hasta que lo '
+          'habilites. Podrá seguir iniciando sesión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(contextoDialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('confirmar-deshabilitar'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
+            onPressed: () => Navigator.of(contextoDialogo).pop(true),
+            child: const Text('Deshabilitar'),
+          ),
+        ],
+      ),
+    );
+    return confirmado == true;
+  }
+
+  Future<void> _cambiar(Usuario estudiante, bool activo) async {
+    if (!activo && !await _confirmarDeshabilitar(estudiante)) return;
+    if (!mounted) return;
+    final error = await _controller.cambiarEstado(estudiante, activo);
+    if (!mounted) return;
+    final retiradas = _controller.retiradasEnUltimoCambio;
+    final mensaje =
+        error ??
+        (activo
+            ? '${estudiante.nombreCompleto} quedó habilitado. Ya puede '
+                  'inscribirse de nuevo.'
+            : '${estudiante.nombreCompleto} quedó deshabilitado. '
+                  '${switch (retiradas) {
+                    0 => 'No estaba inscrito en ninguna disciplina.',
+                    1 => 'Se le retiró de 1 disciplina.',
+                    _ => 'Se le retiró de $retiradas disciplinas.',
+                  }}');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: error != null ? Colors.red[700] : null,
+          content: Text(mensaje),
+        ),
+      );
   }
 
   @override
@@ -24,56 +110,138 @@ class GestionEstudiantesView extends StatelessWidget {
         backgroundColor: _azul,
         foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.instance.users
-            .where('rol', isEqualTo: 'estudiante')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No hay estudiantes registrados.'));
-          }
+      body: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) => Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: _contenido(),
+          ),
+        ),
+      ),
+    );
+  }
 
-          final estudiantes = snapshot.data!.docs
-              .map((doc) => Usuario.fromFirestore(doc))
-              .toList();
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: estudiantes.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final estudiante = estudiantes[index];
-
-              return Card(
-                elevation: 1,
-                child: SwitchListTile(
-                  activeColor: _naranja,
-                  title: Text(
-                    estudiante.nombreCompleto,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+  Widget _contenido() {
+    if (_controller.error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_controller.error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _controller.iniciar,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_controller.cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final estudiantes = _controller.estudiantes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: TextField(
+            key: const Key('buscar-estudiante'),
+            onChanged: _controller.buscar,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Buscar por nombre, correo, carnet o cédula',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Habilitados: ${_controller.activos} · '
+            'Deshabilitados: ${_controller.inactivos}',
+            key: const Key('resumen-estudiantes'),
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: Text(
+            'Al deshabilitar a un estudiante se le retira de todas sus '
+            'disciplinas. Puede seguir iniciando sesión.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
+        Expanded(
+          child: estudiantes.isEmpty
+              ? Center(
+                  key: const Key('sin-estudiantes'),
+                  child: Text(
+                    _controller.busqueda.trim().isEmpty
+                        ? 'No hay estudiantes registrados.'
+                        : 'Ningún estudiante coincide con la búsqueda.',
                   ),
-                  subtitle: Text(
-                    'Carnet: ${estudiante.carnet ?? "S/C"} | Cédula: ${estudiante.cedula ?? "S/C"}',
-                  ),
-                  value: estudiante.estadoActivo,
-                  secondary: CircleAvatar(
-                    backgroundColor: estudiante.estadoActivo
-                        ? Colors.green.shade100
-                        : Colors.red.shade100,
-                    child: Icon(
-                      estudiante.estadoActivo ? Icons.check_circle : Icons.block,
-                      color: estudiante.estadoActivo ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  onChanged: (val) => _cambiarEstado(estudiante.uid, val),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: estudiantes.length,
+                  separatorBuilder: (context, i) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) => _tarjeta(estudiantes[i]),
                 ),
-              );
-            },
-          );
-        },
+        ),
+      ],
+    );
+  }
+
+  Widget _tarjeta(Usuario estudiante) {
+    final activo = _controller.estaActivo(estudiante);
+    final guardando = _controller.guardando(estudiante.uid);
+    return Card(
+      key: Key('estudiante-${estudiante.uid}'),
+      elevation: 1,
+      child: SwitchListTile(
+        key: Key('estado-${estudiante.uid}'),
+        activeThumbColor: _naranja,
+        value: activo,
+        onChanged: guardando ? null : (valor) => _cambiar(estudiante, valor),
+        secondary: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AvatarUsuario(
+              fotoUrl: estudiante.fotoUrl,
+              iniciales: estudiante.iniciales,
+              radio: 22,
+            ),
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: Icon(
+                activo ? Icons.check_circle : Icons.block,
+                size: 18,
+                color: activo ? Colors.green[700] : Colors.red[700],
+              ),
+            ),
+          ],
+        ),
+        title: Text(
+          estudiante.nombreCompleto,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          'Carnet: ${(estudiante.carnet ?? '').isEmpty ? 'S/C' : estudiante.carnet} · '
+          'Cédula: ${(estudiante.cedula ?? '').isEmpty ? 'S/C' : estudiante.cedula}\n'
+          '${guardando ? 'Guardando…' : (activo ? 'Habilitado' : 'Deshabilitado')}',
+        ),
+        isThreeLine: true,
       ),
     );
   }

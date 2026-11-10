@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/deporte.dart';
 import '../models/inscripcion.dart';
 import 'firestore_service.dart';
 
-/// Error al inscribirse, con un mensaje listo para mostrar.
 class InscripcionException implements Exception {
   const InscripcionException(this.mensaje);
 
@@ -14,31 +14,20 @@ class InscripcionException implements Exception {
   String toString() => mensaje;
 }
 
-/// Operaciones de datos de la inscripción del estudiante en una disciplina.
-///
-/// El controlador del buscador depende de esta interfaz; así funciona con
-/// Firestore ([InscripcionService]) o con datos en memoria en las pruebas.
 abstract class InscripcionesDataSource {
-  /// Ids de los deportes donde el estudiante tiene una inscripción activa.
   Future<Set<String>> deportesInscritos(String estudianteId);
 
-  /// Inscribe al estudiante. Lanza [InscripcionException] si no se pudo.
   Future<void> inscribir({
     required String estudianteId,
     required Deporte deporte,
   });
+
+  Future<void> cancelar({
+    required String estudianteId,
+    required String deporteId,
+  });
 }
 
-/// Implementación real con Cloud Firestore (colección `enrollments`).
-///
-/// Cada inscripción es un documento con `estudianteId`, `deporteId`,
-/// `estado: "activa"` y `fechaInscripcion`. Retirarse la marca como
-/// `retirada` (ver `PerfilEstudianteService.retirarDisciplina`), así que
-/// volver a inscribirse crea un documento nuevo.
-///
-/// Los cupos se revisan en la app antes de escribir. Si dos estudiantes se
-/// inscriben en el mismo instante en el último cupo, los dos pueden entrar:
-/// las reglas de Firestore no pueden contar documentos.
 class InscripcionService implements InscripcionesDataSource {
   InscripcionService({FirestoreService? firestore})
       : _firestore = firestore ?? FirestoreService.instance;
@@ -50,6 +39,7 @@ class InscripcionService implements InscripcionesDataSource {
     final resultado = await _firestore.enrollments
         .where('estudianteId', isEqualTo: estudianteId)
         .get();
+
     return {
       for (final doc in resultado.docs)
         if (Inscripcion.fromFirestore(doc).estaActiva)
@@ -63,23 +53,38 @@ class InscripcionService implements InscripcionesDataSource {
     required Deporte deporte,
   }) async {
     try {
-      final deLaDisciplina = await _firestore.enrollments
-          .where('deporteId', isEqualTo: deporte.id)
-          .get();
-      final activas = deLaDisciplina.docs
-          .map(Inscripcion.fromFirestore)
-          .where((inscripcion) => inscripcion.estaActiva)
-          .toList();
-
-      if (activas.any((inscripcion) => inscripcion.estudianteId == estudianteId)) {
-        throw InscripcionException('Ya estás inscrito en ${deporte.nombre}.');
+      final userDoc = await _firestore.users.doc(estudianteId).get();
+      if (!userDoc.exists) {
+        throw const InscripcionException('No se encontró el registro de tu usuario.');
       }
-      if (activas.length >= deporte.cupos) {
-        throw InscripcionException(
-          '${deporte.nombre} ya no tiene cupos disponibles.',
+
+      final userData = userDoc.data() ?? {};
+      final bool estadoActivo = userData['estadoActivo'] ?? true;
+      if (!estadoActivo) {
+        throw const InscripcionException(
+          'Tu cuenta se encuentra inactiva o suspendida. Comunícate con la coordinación deportiva.',
         );
       }
 
+      final snapshot = await _firestore.enrollments
+          .where('deporteId', isEqualTo: deporte.id)
+          .get();
+
+      final inscripcionesActivas = snapshot.docs
+          .map(Inscripcion.fromFirestore)
+          .where((i) => i.estaActiva)
+          .toList();
+
+      if (inscripcionesActivas.any((i) => i.estudianteId == estudianteId)) {
+        throw InscripcionException('Ya estás inscrito en ${deporte.nombre}.');
+      }
+
+      if (inscripcionesActivas.length >= deporte.cupos) {
+        throw InscripcionException(
+          'Lo sentimos, ${deporte.nombre} ya no tiene cupos disponibles '
+          '(${inscripcionesActivas.length}/${deporte.cupos}).',
+        );
+      }
       await _firestore.enrollments.add({
         'estudianteId': estudianteId,
         'deporteId': deporte.id,
@@ -91,9 +96,46 @@ class InscripcionService implements InscripcionesDataSource {
     } on FirebaseException catch (e) {
       throw InscripcionException(
         e.code == 'permission-denied'
-            ? 'No tienes permiso para inscribirte. Vuelve a iniciar sesión.'
-            : 'No se pudo completar la inscripción. Revisa tu conexión e intenta de nuevo.',
+            ? 'No tienes permisos para inscribirte. Vuelve a iniciar sesión.'
+            : 'Error de conexión con la base de datos (${e.code}).',
       );
+    } catch (e) {
+      throw const InscripcionException(
+        'No se pudo procesar la inscripción. Intenta nuevamente.',
+      );
+    }
+  }
+
+  @override
+  Future<void> cancelar({
+    required String estudianteId,
+    required String deporteId,
+  }) async {
+    try {
+      final snapshot = await _firestore.enrollments
+          .where('estudianteId', isEqualTo: estudianteId)
+          .where('deporteId', isEqualTo: deporteId)
+          .get();
+
+      final docsActivos = snapshot.docs.where((doc) {
+        final data = doc.data();
+        return (data['estado'] ?? '').toString().toLowerCase() == 'activa';
+      }).toList();
+
+      if (docsActivos.isEmpty) {
+        throw const InscripcionException('No tienes una inscripción activa en este deporte.');
+      }
+
+      for (final doc in docsActivos) {
+        await doc.reference.update({
+          'estado': EstadoInscripcion.retirada.name,
+          'fechaRetiro': FieldValue.serverTimestamp(),
+        });
+      }
+    } on InscripcionException {
+      rethrow;
+    } catch (e) {
+      throw const InscripcionException('No se pudo cancelar la inscripción.');
     }
   }
 }

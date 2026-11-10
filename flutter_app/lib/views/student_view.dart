@@ -99,12 +99,15 @@ class _StudentViewState extends State<StudentView> {
       onPerfil: widget.onAbrirPerfil,
       onPaginaPrincipal: widget.onIrALanding,
       onCerrarSesion: widget.onCerrarSesion,
+      acciones: [
+        if (widget.onIrACatalogo != null) _botonCatalogo(context),
+      ],
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: 1200),
             child: ListenableBuilder(
               listenable: _controller,
               builder: (context, _) => _contenido(),
@@ -115,8 +118,58 @@ class _StudentViewState extends State<StudentView> {
     );
   }
 
+  /// "Explorar catálogo" en la barra superior, junto a la foto de perfil. En
+  /// pantallas angostas queda solo el ícono para no tapar el logo.
+  Widget _botonCatalogo(BuildContext context) {
+    final angosta = MediaQuery.sizeOf(context).width < 600;
+    if (angosta) {
+      return IconButton(
+        key: const Key('inicio-ver-catalogo'),
+        tooltip: 'Explorar el catálogo de disciplinas',
+        onPressed: widget.onIrACatalogo,
+        icon: const Icon(Icons.search, color: SamanColors.azul),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: OutlinedButton.icon(
+        key: const Key('inicio-ver-catalogo'),
+        onPressed: widget.onIrACatalogo,
+        icon: const Icon(Icons.search),
+        label: const Text('Explorar catálogo'),
+      ),
+    );
+  }
+
+  /// Ancho a partir del cual el calendario y las disciplinas van lado a lado.
+  static const double _anchoDosColumnas = 820;
+
   Widget _contenido() {
+    return LayoutBuilder(
+      builder: (context, restricciones) {
+        final calendario = _columnaCalendario();
+        final disciplinas = _columnaDisciplinas();
+        if (restricciones.maxWidth < _anchoDosColumnas) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [calendario, const SizedBox(height: 30), disciplinas],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 440, child: calendario),
+            const SizedBox(width: 28),
+            Expanded(child: disciplinas),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _columnaCalendario() {
     return Column(
+      key: const Key('columna-calendario'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
@@ -136,21 +189,21 @@ class _StudentViewState extends State<StudentView> {
             ),
           ),
         ),
-        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _columnaDisciplinas() {
+    return Column(
+      key: const Key('columna-disciplinas'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const Text(
           'Disciplinas registradas',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         ..._disciplinas(),
-        const SizedBox(height: 20),
-        if (widget.onIrACatalogo != null)
-          OutlinedButton.icon(
-            key: const Key('inicio-ver-catalogo'),
-            onPressed: widget.onIrACatalogo,
-            icon: const Icon(Icons.search),
-            label: const Text('Explorar el catálogo de disciplinas'),
-          ),
       ],
     );
   }

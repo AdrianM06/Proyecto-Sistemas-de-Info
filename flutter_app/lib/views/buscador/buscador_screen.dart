@@ -1,48 +1,41 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../controllers/buscador_controller.dart';
+import '../../models/bloque_horario.dart';
 import '../../models/deporte.dart';
 import '../../services/buscador_service.dart';
 import '../../services/inscripcion_service.dart';
 import '../entrenador/widgets/entrenador_widgets.dart';
 import '../theme/saman_colors.dart';
+import 'detalle_deporte_view.dart';
 import 'widgets/tarjeta_deporte.dart';
 
-/// Buscador de la oferta deportiva para el estudiante (REQ-14).
-///
-/// Permite buscar por nombre, disciplina o lugar y filtrar por disciplina,
-/// día de la semana y cupos disponibles. Al tocar un deporte se abre su
-/// detalle; si se pasa [onSeleccionar], el detalle muestra el botón
-/// "Inscribirme" que lo llama.
-///
-/// Para abrirla con los datos reales de Firestore:
-/// ```dart
-/// Navigator.of(context).push(MaterialPageRoute(
-///   builder: (_) => BuscadorScreen.conFirestore(),
-/// ));
-/// ```
 class BuscadorScreen extends StatefulWidget {
   const BuscadorScreen({
     super.key,
     required this.controller,
     this.onSeleccionar,
+    this.paginaDeResenas,
   });
 
-  /// Pantalla conectada a Firestore real.
   factory BuscadorScreen.conFirestore({
     Key? key,
+    String? estudianteId,
     void Function(Deporte deporte)? onSeleccionar,
   }) {
+    final uid = estudianteId ?? FirebaseAuth.instance.currentUser?.uid;
     return BuscadorScreen(
       key: key,
-      controller: BuscadorController(datos: BuscadorService()),
+      controller: BuscadorController(
+        datos: BuscadorService(),
+        inscripciones: uid != null ? InscripcionService() : null,
+        estudianteId: uid,
+      ),
       onSeleccionar: onSeleccionar,
     );
   }
 
-  /// Pantalla del estudiante con la sesión abierta: además de buscar, el
-  /// detalle de cada deporte deja inscribirse. El botón pasa a "Inscrito"
-  /// cuando ya tiene una inscripción activa.
   factory BuscadorScreen.paraEstudiante({
     Key? key,
     required String estudianteId,
@@ -57,11 +50,12 @@ class BuscadorScreen extends StatefulWidget {
     );
   }
 
-  /// Controlador del buscador. La pantalla lo libera al cerrarse.
   final BuscadorController controller;
-
-  /// Acción del botón "Inscribirme". Si es `null`, el botón no aparece.
   final void Function(Deporte deporte)? onSeleccionar;
+
+  /// Página que abre "Ver reseñas". Por defecto, [DetalleDeporteView]
+  /// conectada a Firestore; las pruebas pasan otra.
+  final Widget Function(Deporte deporte, String? estudianteId)? paginaDeResenas;
 
   @override
   State<BuscadorScreen> createState() => _BuscadorScreenState();
@@ -146,6 +140,18 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     selected: _controller.soloConCupos,
                     onSelected: _controller.cambiarSoloConCupos,
                   ),
+                  FilterChip(
+                    key: const Key('filtro-horas'),
+                    avatar: const Icon(Icons.schedule, size: 18),
+                    label: Text(
+                      _controller.filtraPorHoras
+                          ? '${BloqueHorario.horaTexto(_controller.desde!)} – '
+                                '${BloqueHorario.horaTexto(_controller.hasta!)}'
+                          : 'Horario',
+                    ),
+                    selected: _controller.filtraPorHoras,
+                    onSelected: (_) => _elegirRangoHoras(),
+                  ),
                   for (final dia in diasDeLaSemana)
                     ChoiceChip(
                       key: Key('dia-$dia'),
@@ -207,8 +213,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     ? MensajeVacio(
                         icono: Icons.search_off,
                         titulo: 'No encontramos deportes',
-                        detalle:
-                            'Prueba con otro nombre o quita algunos filtros.',
+                        detalle: 'Prueba con otro nombre o quita algunos filtros.',
                         accion: FilledButton(
                           key: const Key('limpiar-filtros'),
                           onPressed: _limpiarFiltros,
@@ -227,9 +232,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                             return TarjetaDeporte(
                               key: Key('tarjeta-${deporte.id}'),
                               deporte: deporte,
-                              cuposDisponibles: _controller.cuposDisponiblesDe(
-                                deporte,
-                              ),
+                              cuposDisponibles: _controller.cuposDisponiblesDe(deporte),
                               onTap: () => _mostrarDetalle(deporte),
                             );
                           },
@@ -243,9 +246,105 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
+  /// Hoja para elegir la franja horaria (por ejemplo, de 2:00 pm a 6:00 pm).
+  /// Se combina con el filtro por día.
+  Future<void> _elegirRangoHoras() async {
+    const primera = BuscadorController.primeraHora;
+    const ultima = BuscadorController.ultimaHora;
+    var rango = RangeValues(
+      (_controller.desde ?? primera).toDouble(),
+      (_controller.hasta ?? ultima).toDouble(),
+    );
+    final resultado = await showModalBottomSheet<RangeValues?>(
+      context: context,
+      showDragHandle: true,
+      builder: (contextoHoja) => StatefulBuilder(
+        builder: (contextoHoja, actualizar) => SafeArea(
+          child: Padding(
+            key: const Key('hoja-rango-horas'),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '¿A qué hora puedes entrenar?',
+                  style: Theme.of(contextoHoja).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Entre ${BloqueHorario.horaTexto(rango.start.round())} y '
+                  '${BloqueHorario.horaTexto(rango.end.round())}',
+                  key: const Key('texto-rango-horas'),
+                ),
+                RangeSlider(
+                  key: const Key('slider-rango-horas'),
+                  min: primera.toDouble(),
+                  max: ultima.toDouble(),
+                  divisions: (ultima - primera) ~/ 30,
+                  values: rango,
+                  labels: RangeLabels(
+                    BloqueHorario.horaTexto(rango.start.round()),
+                    BloqueHorario.horaTexto(rango.end.round()),
+                  ),
+                  onChanged: (valores) {
+                    if (valores.end - valores.start < 30) return;
+                    actualizar(() => rango = valores);
+                  },
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      key: const Key('quitar-rango-horas'),
+                      onPressed: () => Navigator.of(
+                        contextoHoja,
+                      ).pop(const RangeValues(-1, -1)),
+                      child: const Text('Quitar filtro'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      key: const Key('aplicar-rango-horas'),
+                      onPressed: () => Navigator.of(contextoHoja).pop(rango),
+                      child: const Text('Aplicar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (resultado == null || !mounted) return;
+    if (resultado.start < 0) {
+      _controller.elegirRangoHoras(null, null);
+    } else {
+      _controller.elegirRangoHoras(
+        resultado.start.round(),
+        resultado.end.round(),
+      );
+    }
+  }
+
+  /// Abre el detalle de la disciplina con sus reseñas y su promedio.
+  void _abrirResenas(Deporte deporte) {
+    final pagina = widget.paginaDeResenas ??
+        (deporte, estudianteId) => DetalleDeporteView.conFirebase(
+              deporte: deporte,
+              estudianteId: estudianteId,
+            );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => pagina(deporte, _controller.estudianteId),
+      ),
+    );
+  }
+
   void _mostrarDetalle(Deporte deporte) {
     final onSeleccionar = widget.onSeleccionar;
     final aviso = ValueNotifier<_Aviso?>(null);
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -257,6 +356,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
             final cuposLibres = _controller.cuposDisponiblesDe(deporte);
             final inscrito = _controller.estaInscrito(deporte);
             final inscribiendo = _controller.inscribiendo == deporte.id;
+
             return SafeArea(
               child: Padding(
                 key: const Key('detalle-deporte'),
@@ -312,20 +412,38 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                           ),
                         ),
                     const SizedBox(height: 12),
+                    _Subtitulo(
+                      deporte.entrenadoresIds.length > 1
+                          ? 'Entrenadores'
+                          : 'Entrenador',
+                    ),
+                    Text(
+                      deporte.entrenadoresTexto,
+                      key: const Key('entrenadores-detalle'),
+                    ),
+                    const SizedBox(height: 12),
                     const _Subtitulo('Lugar'),
                     Text(
-                      deporte.lugar.isEmpty
-                          ? 'Lugar por definir'
-                          : deporte.lugar,
+                      deporte.lugar.isEmpty ? 'Lugar por definir' : deporte.lugar,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Cupos: ${deporte.cupos} · '
+                      'Cupos totales: ${deporte.cupos} · '
                       'Inscritos: ${_controller.inscritosDe(deporte)}',
                       style: const TextStyle(color: SamanColors.neutro500),
                     ),
-                    if (onSeleccionar != null ||
-                        _controller.permiteInscribir) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      key: const Key('boton-ver-resenas'),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      onPressed: () {
+                        Navigator.of(contextoHoja).pop();
+                        _abrirResenas(deporte);
+                      },
+                      icon: const Icon(Icons.star_outline_rounded),
+                      label: const Text('Ver reseñas y valoraciones'),
+                    ),
+                    if (onSeleccionar != null || _controller.permiteInscribir) ...[
                       const SizedBox(height: 20),
                       ValueListenableBuilder<_Aviso?>(
                         valueListenable: aviso,
@@ -358,33 +476,71 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                           );
                         },
                       ),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          key: const Key('boton-inscribirme'),
-                          onPressed:
-                              inscrito || inscribiendo || cuposLibres == 0
-                              ? null
-                              : () =>
-                                    _inscribirme(contextoHoja, deporte, aviso),
-                          child: inscribiendo
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                      if (!inscrito)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            key: const Key('boton-inscribirme'),
+                            onPressed: inscribiendo || cuposLibres == 0
+                                ? null
+                                : () => _inscribirme(contextoHoja, deporte, aviso),
+                            child: inscribiendo
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    cuposLibres == 0
+                                        ? 'Sin cupos disponibles'
+                                        : 'Inscribirme',
                                   ),
-                                )
-                              : Text(
-                                  inscrito
-                                      ? 'Inscrito'
-                                      : cuposLibres == 0
-                                      ? 'Sin cupos disponibles'
-                                      : 'Inscribirme',
+                          ),
+                        )
+                      else ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green[700]),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Actualmente estás inscrito en esta disciplina.',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const Key('boton-cancelar-inscripcion-catalogo'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red[700],
+                              side: BorderSide(color: Colors.red.shade300),
+                            ),
+                            onPressed: inscribiendo
+                                ? null
+                                : () => _cancelarInscripcion(
+                                      contextoHoja,
+                                      deporte,
+                                      aviso,
+                                    ),
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Cancelar mi inscripción'),
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -396,8 +552,6 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
-  /// Con inscripción propia (estudiante) confirma y guarda en Firestore; si
-  /// no, cierra el detalle y le pasa el deporte a `onSeleccionar`.
   Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
@@ -413,8 +567,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
       context: contextoHoja,
       builder: (contextoDialogo) => AlertDialog(
         key: const Key('dialogo-inscripcion'),
-        title: const Text('Inscribirme'),
-        content: Text('¿Quieres inscribirte en ${deporte.nombre}?'),
+        title: const Text('Confirmar Inscripción'),
+        content: Text('¿Deseas inscribirte en ${deporte.nombre}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contextoDialogo).pop(false),
@@ -428,29 +582,62 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
         ],
       ),
     );
+
     if (confirmar != true || !mounted) return;
 
     aviso.value = null;
     final error = await _controller.inscribirse(deporte);
     if (!mounted) return;
+
     aviso.value = error == null
         ? _Aviso('¡Quedaste inscrito en ${deporte.nombre}!', exito: true)
         : _Aviso(error, exito: false);
   }
+
+  Future<void> _cancelarInscripcion(
+    BuildContext contextoHoja,
+    Deporte deporte,
+    ValueNotifier<_Aviso?> aviso,
+  ) async {
+    final confirmar = await showDialog<bool>(
+      context: contextoHoja,
+      builder: (contextoDialogo) => AlertDialog(
+        title: const Text('Cancelar Inscripción'),
+        content: Text('¿Seguro que deseas retirarte de ${deporte.nombre}? Se liberará tu cupo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(contextoDialogo).pop(false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
+            onPressed: () => Navigator.of(contextoDialogo).pop(true),
+            child: const Text('Sí, retirarme'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    aviso.value = null;
+    final error = await _controller.cancelarInscripcion(deporte);
+    if (!mounted) return;
+
+    aviso.value = error == null
+        ? _Aviso('Tu inscripción ha sido cancelada con éxito.', exito: true)
+        : _Aviso(error, exito: false);
+  }
 }
 
-/// Mensaje de resultado de la inscripción dentro del detalle del deporte.
 class _Aviso {
   const _Aviso(this.texto, {required this.exito});
-
   final String texto;
   final bool exito;
 }
 
-/// Fila horizontal desplazable de chips de filtro.
 class _FilaDeChips extends StatelessWidget {
   const _FilaDeChips({required this.children});
-
   final List<Widget> children;
 
   @override
@@ -471,7 +658,6 @@ class _FilaDeChips extends StatelessWidget {
 
 class _Subtitulo extends StatelessWidget {
   const _Subtitulo(this.texto);
-
   final String texto;
 
   @override

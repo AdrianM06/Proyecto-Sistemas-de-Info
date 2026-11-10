@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/entrenador_controller.dart';
 import '../theme/saman_colors.dart';
+import 'detalle_asistencia_estudiante_view.dart';
 import 'widgets/entrenador_widgets.dart';
 
 /// Pestaña "Nómina": estudiantes inscritos en la disciplina seleccionada,
@@ -78,6 +79,12 @@ class NominaView extends StatelessWidget {
                         itemBuilder: (context, i) {
                           final estudiante = estudiantes[i];
                           return ListTile(
+                            key: Key('nomina-${estudiante.uid}'),
+                            onTap: () => abrirDetalleAsistencia(
+                              context,
+                              controller,
+                              estudiante,
+                            ),
                             leading: AvatarIniciales(usuario: estudiante),
                             title: Text(
                               estudiante.nombreCompleto,

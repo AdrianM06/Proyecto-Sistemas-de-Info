@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../firebase_options.dart';
+import '../models/deporte.dart';
 import '../utils/app_validators.dart';
 
 /// Roles que puede tener una cuenta (campo `rol` de la colección `users`).
@@ -254,6 +255,12 @@ class AuthService {
 
   /// Lee el perfil `users/{uid}` y arma la sesión. Si el perfil no existe,
   /// el usuario se trata como estudiante.
+  ///
+  /// `estadoActivo` **no** bloquea el inicio de sesión: un estudiante
+  /// deshabilitado por el administrador entra a la plataforma igual que los
+  /// demás. Ese campo solo le impide inscribirse en disciplinas
+  /// (ver `InscripcionService.inscribir`). Solo una cuenta deshabilitada en
+  /// Firebase Authentication (`user-disabled`) no puede entrar.
   Future<SesionUsuario> obtenerSesion(User user) async {
     final doc = await _users.doc(user.uid).get();
     final datos = doc.data() ?? const <String, dynamic>{};
@@ -346,8 +353,8 @@ class AuthService {
   ///
   /// La cuenta se crea con una instancia secundaria de Firebase Auth para no
   /// cerrar la sesión del admin. El perfil se guarda en `users/{uid}` con
-  /// `rol: "entrenador"` y, si se indica [deporteId], el entrenador queda
-  /// asignado a esa disciplina (`sports/{deporteId}.entrenadorId`).
+  /// `rol: "entrenador"` y, si se indica [deporteId], el entrenador
+  /// se suma a los entrenadores de la disciplina (`entrenadoresIds`).
   ///
   /// El [carnet] es obligatorio. Se guarda en `users/{uid}.carnet` y en el
   /// índice `carnets/{carnet}`, así el entrenador puede iniciar sesión con su
@@ -425,10 +432,22 @@ class AuthService {
           .doc(carnetLimpio)
           .set({'uid': entrenador.uid, 'email': correo});
       if (deporteId != null && deporteId.isNotEmpty) {
-        await _firestore
-            .collection('sports')
-            .doc(deporteId)
-            .update({'entrenadorId': entrenador.uid});
+        // Se suma a los entrenadores que ya tenía la disciplina. Es una
+        // cuenta nueva, así que todavía no dicta nada y no puede haber
+        // choques de horario.
+        final referencia = _firestore.collection('sports').doc(deporteId);
+        await _firestore.runTransaction((transaccion) async {
+          final doc = await transaccion.get(referencia);
+          final ids = Deporte.leerEntrenadoresIds(doc.data() ?? const {});
+          transaccion.update(referencia, {
+            'entrenadoresIds': [...ids, entrenador.uid],
+            'entrenadoresNombres.${entrenador.uid}':
+                '${AppValidators.limpiarNombre(nombre)} '
+                        '${AppValidators.limpiarNombre(apellido)}'
+                    .trim(),
+            'entrenadorId': FieldValue.delete(),
+          });
+        });
       }
     } catch (e) {
       // Deja todo como estaba para no dejar un entrenador a medias.

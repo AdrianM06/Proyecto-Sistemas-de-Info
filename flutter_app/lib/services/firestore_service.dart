@@ -42,4 +42,31 @@ class FirestoreService {
   /// Índice de cédulas: `cedulas/{V-12345678}` -> `{uid}`.
   CollectionReference<Map<String, dynamic>> get cedulas =>
       db.collection('cedulas');
+
+  /// Reseñas de una disciplina: `sports/{deporteId}/reviews/{estudianteId}`.
+  CollectionReference<Map<String, dynamic>> reviewsOf(String deporteId) =>
+      sports.doc(deporteId).collection('reviews');
+
+  /// Documentos de `sports` que dicta el entrenador.
+  ///
+  /// Consulta `entrenadoresIds` con `arrayContains`. Mientras queden
+  /// disciplinas con el campo viejo `entrenadorId` (un solo entrenador),
+  /// también las busca con `isEqualTo` y une los resultados; cada vez que el
+  /// administrador cambia los entrenadores de una disciplina, el campo viejo
+  /// se borra y la disciplina queda migrada.
+  Future<List<DocumentSnapshot<Map<String, dynamic>>>> disciplinasDe(
+    String entrenadorId,
+  ) async {
+    final resultados = await Future.wait([
+      sports.where('entrenadoresIds', arrayContains: entrenadorId).get(),
+      sports.where('entrenadorId', isEqualTo: entrenadorId).get(),
+    ]);
+    final porId = <String, DocumentSnapshot<Map<String, dynamic>>>{};
+    for (final resultado in resultados) {
+      for (final doc in resultado.docs) {
+        porId[doc.id] = doc;
+      }
+    }
+    return porId.values.toList();
+  }
 }

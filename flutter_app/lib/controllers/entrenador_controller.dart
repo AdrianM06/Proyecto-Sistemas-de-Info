@@ -6,6 +6,42 @@ import '../models/deporte.dart';
 import '../models/usuario.dart';
 import '../services/entrenador_service.dart';
 
+/// Una sesión de entrenamiento vista desde un estudiante: si asistió y la
+/// fecha y hora exactas del registro (`null` en registros viejos).
+class RegistroDeAsistencia {
+  const RegistroDeAsistencia({
+    required this.fecha,
+    required this.presente,
+    this.hora,
+  });
+
+  /// Día de la sesión.
+  final DateTime fecha;
+  final bool presente;
+
+  /// Fecha y hora en que se marcó presente; `null` si faltó o si el
+  /// registro es anterior a que se guardara la hora.
+  final DateTime? hora;
+}
+
+/// Asistencia de un estudiante en un mes.
+class AsistenciaMensual {
+  const AsistenciaMensual({required this.mes, required this.registros});
+
+  /// Día 1 del mes.
+  final DateTime mes;
+
+  /// Sesiones del mes, de la más antigua a la más reciente.
+  final List<RegistroDeAsistencia> registros;
+
+  int get sesiones => registros.length;
+  int get asistencias => registros.where((r) => r.presente).length;
+  int get faltas => sesiones - asistencias;
+
+  /// Porcentaje (0 a 1) del mes, o `null` si no hubo sesiones.
+  double? get porcentaje => sesiones == 0 ? null : asistencias / sesiones;
+}
+
 /// Controlador (la "C" de MVC) de la vista del entrenador.
 ///
 /// Recibe las acciones de las pantallas (elegir disciplina, buscar en la
@@ -38,6 +74,15 @@ class EntrenadorController extends ChangeNotifier {
   List<Asistencia> _historial = const [];
   DateTime _fecha;
   final Map<String, bool> _marcas = {};
+
+  /// Momento exacto en que se marcó presente a cada estudiante en la sesión
+  /// abierta. Se guarda en `horasPresentes` al guardar la asistencia.
+  final Map<String, DateTime> _horasMarcadas = {};
+
+  /// Estudiantes presentes en un registro viejo que no guardó la hora. Si el
+  /// entrenador vuelve a guardar esa sesión sin tocarlos, siguen sin hora
+  /// (no se inventa una).
+  final Set<String> _presentesSinHora = {};
   String _busqueda = '';
 
   bool get cargando => _cargando;
@@ -113,6 +158,36 @@ class EntrenadorController extends ChangeNotifier {
     return presentesEnNomina / _nomina.length;
   }
 
+  /// Meses (día 1 de cada mes) con sesiones guardadas, del más reciente al
+  /// más antiguo. Incluye siempre el mes actual.
+  List<DateTime> get mesesConSesiones {
+    final hoy = _reloj();
+    final meses = <DateTime>{
+      DateTime(hoy.year, hoy.month),
+      for (final sesion in _historial)
+        DateTime(sesion.fecha.year, sesion.fecha.month),
+    }.toList()..sort((a, b) => b.compareTo(a));
+    return meses;
+  }
+
+  /// Detalle de la asistencia de un estudiante en el mes de [mes]: cada
+  /// sesión guardada de ese mes, si asistió y a qué hora se registró.
+  AsistenciaMensual asistenciaMensualDe(String estudianteId, DateTime mes) {
+    final registros = [
+      for (final sesion in _historial)
+        if (sesion.fecha.year == mes.year && sesion.fecha.month == mes.month)
+          RegistroDeAsistencia(
+            fecha: sesion.fecha,
+            presente: sesion.estaPresente(estudianteId),
+            hora: sesion.horaDe(estudianteId),
+          ),
+    ]..sort((a, b) => a.fecha.compareTo(b.fecha));
+    return AsistenciaMensual(
+      mes: DateTime(mes.year, mes.month),
+      registros: registros,
+    );
+  }
+
   /// Estudiantes con asistencia menor a [limite] (por defecto 75 %).
   List<Usuario> estudiantesEnRiesgo({double limite = 0.75}) {
     return _nomina.where((estudiante) {
@@ -158,16 +233,34 @@ class EntrenadorController extends ChangeNotifier {
   Future<void> irAHoy() => cambiarFecha(_reloj());
 
   void marcar(String estudianteId, {required bool presente}) {
+    _anotarHora(estudianteId, presente: presente);
     _marcas[estudianteId] = presente;
     notifyListeners();
   }
 
   void marcarTodos({required bool presentes}) {
     for (final estudiante in _nomina) {
+      _anotarHora(estudiante.uid, presente: presentes);
       _marcas[estudiante.uid] = presentes;
     }
     notifyListeners();
   }
+
+  /// Anota la fecha y hora en que el estudiante pasa a "presente". Si ya
+  /// estaba presente, conserva la hora original.
+  void _anotarHora(String estudianteId, {required bool presente}) {
+    if (!presente) {
+      _horasMarcadas.remove(estudianteId);
+      _presentesSinHora.remove(estudianteId);
+    } else if (_marcas[estudianteId] != true) {
+      _horasMarcadas[estudianteId] = _reloj();
+      _presentesSinHora.remove(estudianteId);
+    }
+  }
+
+  /// Fecha y hora en que se marcó presente al estudiante en la sesión
+  /// abierta, o `null`.
+  DateTime? horaMarcadaDe(String estudianteId) => _horasMarcadas[estudianteId];
 
   /// Guarda la asistencia de la fecha seleccionada.
   ///
@@ -199,14 +292,22 @@ class EntrenadorController extends ChangeNotifier {
       return false;
     }
 
+    final ahora = _reloj();
+    final presentesIds = _nomina
+        .where((estudiante) => _marcas[estudiante.uid] == true)
+        .map((estudiante) => estudiante.uid)
+        .toList();
     final asistencia = Asistencia(
       deporteId: deporte.id,
       fecha: _fecha,
       entrenadorId: entrenadorId,
-      presentes: _nomina
-          .where((estudiante) => _marcas[estudiante.uid] == true)
-          .map((estudiante) => estudiante.uid)
-          .toList(),
+      presentes: presentesIds,
+      registradaEn: ahora,
+      horasPresentes: {
+        for (final uid in presentesIds)
+          if (!_presentesSinHora.contains(uid))
+            uid: _horasMarcadas[uid] ?? ahora,
+      },
     );
 
     _guardando = true;
@@ -267,9 +368,20 @@ class EntrenadorController extends ChangeNotifier {
 
   void _aplicarAsistencia(Asistencia? guardada) {
     _marcas.clear();
+    _horasMarcadas.clear();
+    _presentesSinHora.clear();
     if (guardada == null) return;
     for (final estudiante in _nomina) {
-      _marcas[estudiante.uid] = guardada.estaPresente(estudiante.uid);
+      final uid = estudiante.uid;
+      _marcas[uid] = guardada.estaPresente(uid);
+      if (!guardada.estaPresente(uid)) continue;
+      // Al editar una sesión ya guardada se conservan las horas originales.
+      final hora = guardada.horaDe(uid);
+      if (hora != null) {
+        _horasMarcadas[uid] = hora;
+      } else {
+        _presentesSinHora.add(uid);
+      }
     }
   }
 

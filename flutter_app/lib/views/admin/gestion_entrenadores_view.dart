@@ -86,8 +86,11 @@ class _GestionEntrenadoresViewState extends State<GestionEntrenadoresView> {
           for (final deporte in disponibles)
             _OpcionDisciplina(
               deporte: deporte,
-              yaEsSuya: deporte.entrenadorId == entrenador.uid,
-              actual: _controller.entrenadorDe(deporte),
+              yaEsSuya: deporte.tieneEntrenador(entrenador.uid),
+              actuales: _controller.entrenadoresDe(deporte),
+              choca: _controller
+                  .choquesAlAsignar(entrenador, deporte)
+                  .isNotEmpty,
               onElegir: () => Navigator.of(contextoDialogo).pop(deporte),
             ),
         ],
@@ -95,37 +98,34 @@ class _GestionEntrenadoresViewState extends State<GestionEntrenadoresView> {
     );
     if (elegida == null || !mounted) return;
 
-    final actual = _controller.entrenadorDe(elegida);
-    if (actual != null) {
-      final confirmar = await showDialog<bool>(
-        context: context,
-        builder: (contextoDialogo) => AlertDialog(
-          title: const Text('Reasignar disciplina'),
-          content: Text(
-            '${elegida.nombre} la tiene $actual. '
-            '¿Pasarla a ${entrenador.nombreCompleto}?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(contextoDialogo).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              key: const Key('confirmar-reasignar'),
-              onPressed: () => Navigator.of(contextoDialogo).pop(true),
-              child: const Text('Reasignar'),
-            ),
-          ],
-        ),
-      );
-      if (confirmar != true || !mounted) return;
-    }
-
     final error = await _controller.asignar(entrenador, elegida);
     if (!mounted) return;
+    if (error != null && _controller.ultimoErrorFueChoque) {
+      await _mostrarChoque(error);
+      return;
+    }
     _avisar(
       error ?? '${elegida.nombre} asignada a ${entrenador.nombreCompleto}.',
       exito: error == null,
+    );
+  }
+
+  /// Diálogo que bloquea la asignación y explica con qué disciplina choca.
+  Future<void> _mostrarChoque(String mensaje) {
+    return showDialog<void>(
+      context: context,
+      builder: (contextoDialogo) => AlertDialog(
+        key: const Key('dialogo-choque-horario'),
+        icon: Icon(Icons.event_busy, color: Colors.red[700], size: 36),
+        title: const Text('Choque de horario'),
+        content: Text(mensaje),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(contextoDialogo).pop(),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -136,7 +136,7 @@ class _GestionEntrenadoresViewState extends State<GestionEntrenadoresView> {
         title: const Text('Revocar disciplina'),
         content: Text(
           '¿Quitar ${deporte.nombre} a ${entrenador.nombreCompleto}? '
-          'La disciplina quedará sin entrenador.',
+          '${deporte.entrenadoresIds.length > 1 ? 'Los demás entrenadores la seguirán dictando.' : 'La disciplina quedará sin entrenador.'}',
         ),
         actions: [
           TextButton(
@@ -345,28 +345,45 @@ class _OpcionDisciplina extends StatelessWidget {
   const _OpcionDisciplina({
     required this.deporte,
     required this.yaEsSuya,
-    required this.actual,
+    required this.actuales,
+    required this.choca,
     required this.onElegir,
   });
 
   final Deporte deporte;
   final bool yaEsSuya;
-  final String? actual;
+
+  /// Nombres de los entrenadores que ya la dictan.
+  final List<String> actuales;
+
+  /// `true` si se cruza con el horario del entrenador. Se puede tocar igual,
+  /// para ver el detalle del choque.
+  final bool choca;
   final VoidCallback onElegir;
 
   @override
   Widget build(BuildContext context) {
     final detalle = yaEsSuya
         ? 'Ya la tiene asignada'
-        : actual == null
+        : choca
+        ? 'Choca con su horario'
+        : actuales.isEmpty
         ? 'Sin entrenador'
-        : 'Entrenador actual: $actual';
+        : 'Entrenadores: ${actuales.join(', ')}';
     return ListTile(
       key: Key('opcion-${deporte.id}'),
       enabled: !yaEsSuya,
       leading: Icon(
-        yaEsSuya ? Icons.check_circle : Icons.sports,
-        color: yaEsSuya ? Colors.green[700] : _azul,
+        yaEsSuya
+            ? Icons.check_circle
+            : choca
+            ? Icons.event_busy
+            : Icons.sports,
+        color: yaEsSuya
+            ? Colors.green[700]
+            : choca
+            ? Colors.red[700]
+            : _azul,
       ),
       title: Text(deporte.nombre),
       subtitle: Text('${deporte.horariosTexto} · $detalle'),

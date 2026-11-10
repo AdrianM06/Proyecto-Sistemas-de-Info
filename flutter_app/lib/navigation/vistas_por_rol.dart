@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../views/admin/admin_dashboard_view.dart';
 import '../views/admin/crear_deporte_view.dart';
+import '../views/admin/gestion_disciplinas_view.dart';
 import '../views/admin/gestion_entrenadores_view.dart';
 import '../views/admin/gestion_estudiantes_view.dart';
 import '../views/admin/registrar_entrenador_view.dart';
@@ -95,10 +96,19 @@ Widget construirVistaAdmin(BuildContext context, SesionUsuario sesion) {
         navigator.pushNamed(AppRoutes.registrarEntrenador, arguments: sesion),
     onCrearDeporte: () =>
         navigator.pushNamed(AppRoutes.crearDeporte, arguments: sesion),
+    onGestionarDisciplinas: () =>
+        navigator.pushNamed(AppRoutes.gestionDisciplinas, arguments: sesion),
     onGestionarEstudiantes: () =>
         navigator.pushNamed(AppRoutes.gestionEstudiantes, arguments: sesion),
     onGestionarEntrenadores: () =>
         navigator.pushNamed(AppRoutes.gestionEntrenadores, arguments: sesion),
+    // Solo se llega desde el panel del admin, que ya pasó por la guarda de
+    // rol de la ruta.
+    onEditarDeporte: (deporte) => navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => CrearDeporteView(deporte: deporte),
+      ),
+    ),
   );
 }
 
@@ -112,6 +122,10 @@ Widget construirGestionEntrenadores(BuildContext context, SesionUsuario sesion) 
 
 Widget construirGestionEstudiantes(BuildContext context, SesionUsuario sesion) {
   return const GestionEstudiantesView();
+}
+
+Widget construirGestionDisciplinas(BuildContext context, SesionUsuario sesion) {
+  return GestionDisciplinasView.conFirebase();
 }
 
 Widget construirCrearDeporte(BuildContext context, SesionUsuario sesion) {

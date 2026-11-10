@@ -5,7 +5,6 @@ import '../services/buscador_service.dart';
 import '../services/inscripcion_service.dart';
 import '../utils/horarios.dart';
 
-/// Días que se pueden elegir en el filtro del buscador.
 const List<String> diasDeLaSemana = [
   'Lun',
   'Mar',
@@ -33,9 +32,6 @@ const Map<String, String> _sinAcentos = {
   'Ñ': 'n',
 };
 
-/// Minúsculas y sin acentos: "Fútbol Sala" → "futbol sala".
-///
-/// Se usa para que la búsqueda no dependa de tildes ni mayúsculas.
 String normalizar(String texto) {
   final buffer = StringBuffer();
   for (final letra in texto.split('')) {
@@ -44,14 +40,7 @@ String normalizar(String texto) {
   return buffer.toString().toLowerCase().trim();
 }
 
-/// Controlador (la "C" de MVC) del buscador de deportes.
-///
-/// Pide la oferta deportiva una sola vez a un [BuscadorDataSource] y después
-/// aplica la búsqueda y los filtros en memoria. La pantalla solo lee su
-/// estado y se redibuja cuando el controlador llama a `notifyListeners()`.
 class BuscadorController extends ChangeNotifier {
-  /// Con [inscripciones] y [estudianteId] el buscador deja que el estudiante
-  /// se inscriba en una disciplina; sin ellos solo muestra la oferta.
   BuscadorController({
     required BuscadorDataSource datos,
     InscripcionesDataSource? inscripciones,
@@ -67,16 +56,11 @@ class BuscadorController extends ChangeNotifier {
   Set<String> _misDeportes = const {};
   String? _inscribiendo;
 
-  /// `true` si el estudiante puede inscribirse desde el buscador.
+  /// Uid del estudiante que usa el catálogo, o `null` sin sesión.
+  String? get estudianteId => _estudianteId;
   bool get permiteInscribir => _inscripciones != null && _estudianteId != null;
-
-  /// `true` si el estudiante ya tiene una inscripción activa en el deporte.
   bool estaInscrito(Deporte deporte) => _misDeportes.contains(deporte.id);
-
-  /// Id del deporte que se está inscribiendo ahora, si hay uno.
   String? get inscribiendo => _inscribiendo;
-
-  // ---------------------------------------------------------------- estado
 
   bool _cargando = false;
   String? _error;
@@ -91,6 +75,13 @@ class BuscadorController extends ChangeNotifier {
   String? _etiqueta;
   String? _dia;
   bool _soloConCupos = false;
+  int? _desde;
+  int? _hasta;
+
+  /// Límites del filtro por horas, en minutos desde la medianoche
+  /// (6:00 am a 10:00 pm).
+  static const int primeraHora = 6 * 60;
+  static const int ultimaHora = 22 * 60;
 
   bool get cargando => _cargando;
   String? get error => _error;
@@ -100,39 +91,34 @@ class BuscadorController extends ChangeNotifier {
   String? get dia => _dia;
   bool get soloConCupos => _soloConCupos;
 
-  /// `true` si hay algún filtro o texto de búsqueda activo.
+  /// Inicio de la franja horaria elegida (minutos desde la medianoche), o
+  /// `null` si no se filtra por horas.
+  int? get desde => _desde;
+
+  /// Fin de la franja horaria elegida (minutos desde la medianoche).
+  int? get hasta => _hasta;
+  bool get filtraPorHoras => _desde != null && _hasta != null;
+
   bool get hayFiltros =>
       _texto.trim().isNotEmpty ||
       _disciplina != null ||
       _etiqueta != null ||
       _dia != null ||
+      filtraPorHoras ||
       _soloConCupos;
 
-  /// Todos los deportes cargados, sin filtrar.
   List<Deporte> get todos => List.unmodifiable(_todos);
-
-  /// Deportes que cumplen todos los filtros activos, ordenados por nombre.
   List<Deporte> get resultados => List.unmodifiable(_resultados);
-
-  /// Disciplinas distintas de la oferta, para los chips de filtro.
   List<String> get disciplinas => List.unmodifiable(_disciplinas);
-
-  /// Etiquetas distintas de la oferta (por ejemplo "Torneos"), para los
-  /// chips de filtro.
   List<String> get etiquetas => List.unmodifiable(_etiquetas);
 
-  /// Inscripciones activas del deporte.
   int inscritosDe(Deporte deporte) => _inscritos[deporte.id] ?? 0;
 
-  /// Cupos libres del deporte (nunca negativo).
   int cuposDisponiblesDe(Deporte deporte) {
     final libres = deporte.cupos - inscritosDe(deporte);
     return libres > 0 ? libres : 0;
   }
 
-  // --------------------------------------------------------------- acciones
-
-  /// Carga los deportes y sus inscritos.
   Future<void> iniciar() async {
     _cargando = true;
     _error = null;
@@ -142,8 +128,6 @@ class BuscadorController extends ChangeNotifier {
         _datos.todosLosDeportes(),
         _datos.inscritosPorDeporte(),
       ]);
-      // Los documentos de `sports` sin nombre son registros vacíos que no
-      // se pueden inscribir; no se muestran.
       _todos = (datos[0] as List<Deporte>)
           .where((deporte) => deporte.nombre.trim().isNotEmpty)
           .where((deporte) => deporte.nombre != 'Sin nombre')
@@ -153,8 +137,7 @@ class BuscadorController extends ChangeNotifier {
     } catch (e) {
       _todos = const [];
       _inscritos = const {};
-      _error =
-          'No se pudo cargar la oferta deportiva. Revisa tu conexión e intenta de nuevo.';
+      _error = 'No se pudo cargar la oferta deportiva.';
     } finally {
       _cargando = false;
       _calcularDisciplinas();
@@ -164,11 +147,8 @@ class BuscadorController extends ChangeNotifier {
     }
   }
 
-  /// Vuelve a pedir la oferta deportiva.
   Future<void> recargar() => iniciar();
 
-  /// Inscribe al estudiante en [deporte]. Devuelve el mensaje de error o
-  /// `null` si quedó inscrito.
   Future<String?> inscribirse(Deporte deporte) async {
     final inscripciones = _inscripciones;
     final estudianteId = _estudianteId;
@@ -192,15 +172,43 @@ class BuscadorController extends ChangeNotifier {
     } on InscripcionException catch (e) {
       return e.mensaje;
     } catch (e) {
-      return 'No se pudo completar la inscripción. Intenta de nuevo.';
+      return 'No se pudo completar la inscripción.';
     } finally {
       _inscribiendo = null;
       notifyListeners();
     }
   }
 
-  /// Carga los deportes donde el estudiante ya está inscrito. Si falla, el
-  /// catálogo se muestra igual y el servicio revisa al inscribirse.
+  Future<String?> cancelarInscripcion(Deporte deporte) async {
+    final inscripciones = _inscripciones;
+    final estudianteId = _estudianteId;
+    if (inscripciones == null || estudianteId == null) return null;
+
+    _inscribiendo = deporte.id;
+    notifyListeners();
+    try {
+      await inscripciones.cancelar(
+        estudianteId: estudianteId,
+        deporteId: deporte.id,
+      );
+      _misDeportes = _misDeportes.where((id) => id != deporte.id).toSet();
+      final actual = inscritosDe(deporte);
+      _inscritos = {
+        ..._inscritos,
+        deporte.id: actual > 0 ? actual - 1 : 0,
+      };
+      _filtrar();
+      return null;
+    } on InscripcionException catch (e) {
+      return e.mensaje;
+    } catch (e) {
+      return 'No se pudo cancelar la inscripción.';
+    } finally {
+      _inscribiendo = null;
+      notifyListeners();
+    }
+  }
+
   Future<void> _cargarMisDeportes() async {
     final inscripciones = _inscripciones;
     final estudianteId = _estudianteId;
@@ -218,21 +226,18 @@ class BuscadorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Elige una disciplina; elegir la misma que ya está activa la quita.
   void elegirDisciplina(String? disciplina) {
     _disciplina = disciplina == _disciplina ? null : disciplina;
     _filtrar();
     notifyListeners();
   }
 
-  /// Elige una etiqueta; elegir la misma que ya está activa la quita.
   void elegirEtiqueta(String? etiqueta) {
     _etiqueta = etiqueta == _etiqueta ? null : etiqueta;
     _filtrar();
     notifyListeners();
   }
 
-  /// Elige un día de [diasDeLaSemana]; elegir el mismo lo quita.
   void elegirDia(String? dia) {
     _dia = dia == _dia ? null : dia;
     _filtrar();
@@ -245,17 +250,33 @@ class BuscadorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deja solo las disciplinas con algún entrenamiento que empiece y termine
+  /// dentro de la franja [desde]–[hasta] (minutos desde la medianoche). Si
+  /// además hay un día elegido, el entrenamiento tiene que ser ese día.
+  /// Con `null` se quita el filtro.
+  void elegirRangoHoras(int? desde, int? hasta) {
+    if (desde == null || hasta == null || hasta <= desde) {
+      _desde = null;
+      _hasta = null;
+    } else {
+      _desde = desde;
+      _hasta = hasta;
+    }
+    _filtrar();
+    notifyListeners();
+  }
+
   void limpiarFiltros() {
     _texto = '';
     _disciplina = null;
     _etiqueta = null;
     _dia = null;
+    _desde = null;
+    _hasta = null;
     _soloConCupos = false;
     _filtrar();
     notifyListeners();
   }
-
-  // ---------------------------------------------------------------- internos
 
   void _calcularDisciplinas() {
     final unicas = <String, String>{};
@@ -302,9 +323,14 @@ class BuscadorController extends ChangeNotifier {
           !deporte.etiquetas.any((e) => normalizar(e) == etiqueta)) {
         return false;
       }
-      // Los horarios son texto libre ("Lun y Mié 12:15 PM - 1:45 PM"): se
-      // leen todos los días que nombran, no solo el primero.
-      if (dia != null && !deporte.diasDeEntrenamiento.contains(dia)) {
+      if (filtraPorHoras) {
+        final enLaFranja = deporte.bloques.any(
+          (bloque) =>
+              (dia == null || bloque.dia == dia) &&
+              bloque.estaDentroDe(_desde!, _hasta!),
+        );
+        if (!enLaFranja) return false;
+      } else if (dia != null && !deporte.diasDeEntrenamiento.contains(dia)) {
         return false;
       }
       if (_soloConCupos && cuposDisponiblesDe(deporte) == 0) {

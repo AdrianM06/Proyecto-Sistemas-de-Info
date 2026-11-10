@@ -151,17 +151,45 @@ service cloud.firestore {
     // ---------------------------------------------------------------- deportes
 
     // El catálogo es público; solo el admin crea o cambia disciplinas.
+    //
+    // Varios entrenadores por disciplina: `entrenadoresIds` es una lista de
+    // uids y `entrenadoresNombres` un mapa uid -> nombre. Los horarios
+    // estructurados (`bloquesHorario`: [{dia, inicio, fin}] en minutos) se
+    // validan en la app; aquí solo se exige el tipo, porque las reglas no
+    // pueden recorrer listas. Que un entrenador no tenga dos disciplinas a la
+    // misma hora lo comprueba la app dentro de una transacción: las reglas no
+    // pueden consultar las demás disciplinas del entrenador.
+    function disciplinaValida() {
+      let d = request.resource.data;
+      return (!('entrenadoresIds' in d) || (d.entrenadoresIds is list
+                                            && d.entrenadoresIds.size() <= 20))
+        && (!('entrenadoresNombres' in d) || d.entrenadoresNombres is map)
+        && (!('bloquesHorario' in d) || (d.bloquesHorario is list
+                                         && d.bloquesHorario.size() <= 50))
+        && (!('diasSemana' in d) || d.diasSemana is list)
+        && (!('horaMinima' in d) || d.horaMinima == null
+            || (d.horaMinima is int && d.horaMinima >= 0 && d.horaMinima <= 1440))
+        && (!('horaMaxima' in d) || d.horaMaxima == null
+            || (d.horaMaxima is int && d.horaMaxima >= 0 && d.horaMaxima <= 1440));
+    }
+
     match /sports/{deporteId} {
       allow read: if true;
-      allow write: if esAdmin();
+      allow create, update: if esAdmin() && disciplinaValida();
+      allow delete: if esAdmin();
     }
 
     // ------------------------------------------------------------ inscripciones
 
     match /enrollments/{inscripcionId} {
       allow read: if conSesion();
+      // Un estudiante deshabilitado por el admin (estadoActivo == false)
+      // puede iniciar sesión, pero no inscribirse. Al deshabilitarlo, el
+      // admin lo retira de todas sus disciplinas en el mismo lote.
       allow create: if esAdmin()
-        || (conSesion() && request.resource.data.estudianteId == request.auth.uid);
+        || (conSesion()
+            && request.resource.data.estudianteId == request.auth.uid
+            && get(rutaUsuario(request.auth.uid)).data.get('estadoActivo', true) != false);
       // El estudiante solo puede retirarse de su propia inscripción.
       allow update: if esAdmin()
         || (conSesion()
@@ -177,6 +205,54 @@ service cloud.firestore {
     match /attendances/{asistenciaId} {
       allow read: if conSesion();
       allow write: if esPersonal();
+    }
+
+    // ------------------------------------------------------------------ reseñas
+
+    // Reseñas: sports/{deporteId}/reviews/{estudianteId}. Las lee cualquiera
+    // (el catálogo es público). Cada estudiante escribe solo la suya, porque
+    // el id del documento es su uid, y solo si está inscrito: la reseña lleva
+    // el id de su inscripción y aquí se comprueba que esa inscripción es suya,
+    // de esta disciplina y no está retirada.
+    function inscripcionActivaDe(inscripcionId, deporteId) {
+      let ins = get(/databases/$(database)/documents/enrollments/$(inscripcionId)).data;
+      return ins.estudianteId == request.auth.uid
+        && ins.deporteId == deporteId
+        && ins.get('estado', 'activa') != 'retirada';
+    }
+
+    function resenaValida(deporteId, estudianteId) {
+      let d = request.resource.data;
+      return d.estudianteId == estudianteId
+        && d.deporteId == deporteId
+        && d.inscripcionId is string
+        && inscripcionActivaDe(d.inscripcionId, deporteId)
+        && d.rating is int
+        && d.rating >= 1
+        && d.rating <= 5
+        && d.comment is string
+        && d.comment.size() >= 1
+        && d.comment.size() <= 500
+        && d.autor is string
+        && d.autor.size() <= 100;
+    }
+
+    match /sports/{deporteId}/reviews/{estudianteId} {
+      allow read: if true;
+      allow create: if esElMismo(estudianteId)
+        && request.resource.data.keys().hasOnly(['estudianteId', 'deporteId',
+                                                 'inscripcionId', 'autor',
+                                                 'rating', 'comment',
+                                                 'createdAt'])
+        && request.resource.data.createdAt == request.time
+        && resenaValida(deporteId, estudianteId);
+      allow update: if esElMismo(estudianteId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['inscripcionId', 'autor', 'rating', 'comment',
+                       'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && resenaValida(deporteId, estudianteId);
+      allow delete: if esElMismo(estudianteId) || esAdmin();
     }
 
     // Todo lo demás queda cerrado.
