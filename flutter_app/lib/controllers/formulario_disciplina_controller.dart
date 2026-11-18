@@ -6,6 +6,7 @@ import '../models/bloque_horario.dart';
 import '../models/deporte.dart';
 import '../models/usuario.dart';
 import '../services/gestion_entrenadores_service.dart';
+import '../utils/app_validators.dart';
 import '../utils/choques_horario.dart';
 import '../utils/horarios.dart';
 
@@ -158,6 +159,9 @@ class FormularioDisciplinaController extends ChangeNotifier {
   }) async {
     _ultimoErrorFueChoque = false;
     if (nombre.trim().isEmpty) return 'Ingresa el nombre de la disciplina.';
+    if (AppValidators.generarIdDeDisciplina(nombre).isEmpty) {
+      return 'El nombre debe contener letras o números.';
+    }
     if (cupos <= 0) return 'Los cupos deben ser un número mayor que cero.';
     final errorHorarios = validarHorarios(_horarios);
     if (errorHorarios != null) return errorHorarios;

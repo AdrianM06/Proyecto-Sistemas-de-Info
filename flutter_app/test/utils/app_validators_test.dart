@@ -9,7 +9,9 @@ void main() {
         isNull,
       );
       expect(
-        AppValidators.validateEmailEstudiante('  Ana.Perez@CORREO.unimet.edu.ve '),
+        AppValidators.validateEmailEstudiante(
+          '  Ana.Perez@CORREO.unimet.edu.ve ',
+        ),
         isNull,
       );
     });
@@ -31,8 +33,14 @@ void main() {
     });
 
     test('es obligatorio y no admite espacios', () {
-      expect(AppValidators.validateEmailEstudiante(''), 'El correo es obligatorio');
-      expect(AppValidators.validateEmailEstudiante(null), 'El correo es obligatorio');
+      expect(
+        AppValidators.validateEmailEstudiante(''),
+        'El correo es obligatorio',
+      );
+      expect(
+        AppValidators.validateEmailEstudiante(null),
+        'El correo es obligatorio',
+      );
       expect(
         AppValidators.validateEmailEstudiante('ana perez@correo.unimet.edu.ve'),
         'El correo no puede tener espacios ni emojis',
@@ -55,7 +63,10 @@ void main() {
     });
 
     test('rechaza formatos incorrectos', () {
-      expect(AppValidators.validateCarnet('', hoy: hoy), 'El carnet es obligatorio');
+      expect(
+        AppValidators.validateCarnet('', hoy: hoy),
+        'El carnet es obligatorio',
+      );
       expect(
         AppValidators.validateCarnet('2022A110045', hoy: hoy),
         'El carnet solo debe contener números',
@@ -81,7 +92,12 @@ void main() {
 
   group('cédula', () {
     test('acepta los formatos comunes y los normaliza', () {
-      for (final cedula in ['27123456', 'V27123456', 'V-27123456', 'v-27.123.456']) {
+      for (final cedula in [
+        '27123456',
+        'V27123456',
+        'V-27123456',
+        'v-27.123.456',
+      ]) {
         expect(AppValidators.validateCedula(cedula), isNull, reason: cedula);
         expect(AppValidators.normalizarCedula(cedula), 'V-27123456');
       }
@@ -90,7 +106,13 @@ void main() {
 
     test('rechaza cédulas inválidas', () {
       expect(AppValidators.validateCedula(''), 'La cédula es obligatoria');
-      for (final cedula in ['12345', 'X-12345678', '1234567890', 'V-12a45678', '000123']) {
+      for (final cedula in [
+        '12345',
+        'X-12345678',
+        '1234567890',
+        'V-12a45678',
+        '000123',
+      ]) {
         expect(AppValidators.validateCedula(cedula), isNotNull, reason: cedula);
         expect(AppValidators.normalizarCedula(cedula), isNull, reason: cedula);
       }
@@ -103,10 +125,27 @@ void main() {
       expect(AppValidators.validateApellido("D'Agostino-Núñez"), isNull);
     });
 
+    group('identificador de disciplina', () {
+      test('usa el nombre público sin acentos ni caracteres especiales', () {
+        expect(AppValidators.generarIdDeDisciplina('Fútbol 7! 🏆'), 'futbol-7');
+        expect(
+          AppValidators.generarIdDeDisciplina('Natación & Waterpolo'),
+          'natacion-waterpolo',
+        );
+        expect(AppValidators.generarIdDeDisciplina('🏆🎉'), '');
+      });
+    });
+
     test('rechazan vacíos, números y textos muy largos', () {
       expect(AppValidators.validateNombre('  '), 'El nombre es obligatorio');
-      expect(AppValidators.validateNombre('A'), 'El nombre debe tener al menos 2 letras');
-      expect(AppValidators.validateApellido('P3rez'), 'El apellido solo puede tener letras');
+      expect(
+        AppValidators.validateNombre('A'),
+        'El nombre debe tener al menos 2 letras',
+      );
+      expect(
+        AppValidators.validateApellido('P3rez'),
+        'El apellido solo puede tener letras',
+      );
       expect(
         AppValidators.validateNombre('A' * 41),
         'El nombre no puede pasar de 40 caracteres',
@@ -121,7 +160,10 @@ void main() {
   group('contraseña', () {
     test('exige 8 caracteres, una mayúscula y un número', () {
       expect(AppValidators.validatePassword('Clave1234'), isNull);
-      expect(AppValidators.validatePassword(''), 'La contraseña es obligatoria');
+      expect(
+        AppValidators.validatePassword(''),
+        'La contraseña es obligatoria',
+      );
       expect(
         AppValidators.validatePassword('Cl1'),
         'La contraseña debe tener al menos 8 caracteres',
@@ -137,18 +179,27 @@ void main() {
     });
 
     test('la confirmación debe coincidir', () {
-      expect(AppValidators.validateConfirmacion('Clave1234', 'Clave1234'), isNull);
+      expect(
+        AppValidators.validateConfirmacion('Clave1234', 'Clave1234'),
+        isNull,
+      );
       expect(
         AppValidators.validateConfirmacion('Clave12345', 'Clave1234'),
         'Las contraseñas no coinciden',
       );
-      expect(AppValidators.validateConfirmacion('', 'Clave1234'), 'Repite la contraseña');
+      expect(
+        AppValidators.validateConfirmacion('', 'Clave1234'),
+        'Repite la contraseña',
+      );
     });
   });
 
   group('identificador del login', () {
     test('acepta correo Unimet o carnet', () {
-      expect(AppValidators.validateIdentificadorLogin('ana@correo.unimet.edu.ve'), isNull);
+      expect(
+        AppValidators.validateIdentificadorLogin('ana@correo.unimet.edu.ve'),
+        isNull,
+      );
       expect(AppValidators.validateIdentificadorLogin('20221110045'), isNull);
     });
 
@@ -158,7 +209,10 @@ void main() {
         'Escribe tu correo o tu carnet',
       );
       expect(AppValidators.validateIdentificadorLogin('123'), isNotNull);
-      expect(AppValidators.validateIdentificadorLogin('ana@gmail.com'), isNotNull);
+      expect(
+        AppValidators.validateIdentificadorLogin('ana@gmail.com'),
+        isNotNull,
+      );
     });
   });
 

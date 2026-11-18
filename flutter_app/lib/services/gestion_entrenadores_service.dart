@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/deporte.dart';
 import '../models/usuario.dart';
+import '../utils/app_validators.dart';
 import '../utils/choques_horario.dart';
 import 'firestore_service.dart';
 
@@ -149,23 +150,37 @@ class GestionEntrenadoresService implements GestionEntrenadoresDataSource {
   @override
   Future<void> guardarDisciplina(Deporte deporte) {
     final nueva = deporte.id.isEmpty;
-    final referencia = nueva
-        ? _firestore.sports.doc()
-        : _firestore.sports.doc(deporte.id);
-    final guardada = Deporte(
-      id: referencia.id,
-      nombre: deporte.nombre,
-      disciplina: deporte.disciplina,
-      cupos: deporte.cupos,
-      entrenadoresIds: deporte.entrenadoresIds,
-      entrenadoresNombres: deporte.entrenadoresNombres,
-      horarios: deporte.horarios,
-      bloques: deporte.bloques,
-      lugar: deporte.lugar,
-      etiquetas: deporte.etiquetas,
-    );
 
     return _enTransaccion((transaccion) async {
+      late DocumentReference<Map<String, dynamic>> referencia;
+      if (nueva) {
+        final base = AppValidators.generarIdDeDisciplina(deporte.nombre);
+        final baseSegura = base.isEmpty ? 'disciplina' : base;
+        var candidato = baseSegura;
+        var sufijo = 2;
+        while ((await transaccion.get(_firestore.sports.doc(candidato)))
+            .exists) {
+          candidato = '$baseSegura-$sufijo';
+          sufijo++;
+        }
+        referencia = _firestore.sports.doc(candidato);
+      } else {
+        referencia = _firestore.sports.doc(deporte.id);
+      }
+
+      final guardada = Deporte(
+        id: referencia.id,
+        nombre: deporte.nombre,
+        disciplina: deporte.disciplina,
+        cupos: deporte.cupos,
+        entrenadoresIds: deporte.entrenadoresIds,
+        entrenadoresNombres: deporte.entrenadoresNombres,
+        horarios: deporte.horarios,
+        bloques: deporte.bloques,
+        lugar: deporte.lugar,
+        etiquetas: deporte.etiquetas,
+      );
+
       if (!nueva) {
         final doc = await transaccion.get(referencia);
         if (!doc.exists) {

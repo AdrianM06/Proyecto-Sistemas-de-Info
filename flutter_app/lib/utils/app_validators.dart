@@ -7,6 +7,48 @@
 class AppValidators {
   AppValidators._();
 
+  /// Convierte el nombre público de una disciplina en un identificador seguro
+  /// para Firestore: quita acentos y caracteres especiales, convierte todo a
+  /// minúsculas y separa las palabras con guiones.
+  static String generarIdDeDisciplina(String nombre) {
+    const reemplazos = {
+      'á': 'a',
+      'à': 'a',
+      'ä': 'a',
+      'â': 'a',
+      'é': 'e',
+      'è': 'e',
+      'ë': 'e',
+      'ê': 'e',
+      'í': 'i',
+      'ì': 'i',
+      'ï': 'i',
+      'î': 'i',
+      'ó': 'o',
+      'ò': 'o',
+      'ö': 'o',
+      'ô': 'o',
+      'ú': 'u',
+      'ù': 'u',
+      'ü': 'u',
+      'û': 'u',
+      'ñ': 'n',
+      'ç': 'c',
+    };
+
+    var limpio = nombre.trim().toLowerCase();
+    reemplazos.forEach((buscado, reemplazo) {
+      limpio = limpio.replaceAll(buscado, reemplazo);
+      limpio = limpio.replaceAll(buscado.toUpperCase(), reemplazo);
+    });
+    limpio = limpio
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return limpio.length <= 128
+        ? limpio
+        : limpio.substring(0, 128).replaceAll(RegExp(r'-+$'), '');
+  }
+
   // Bloques Unicode de emojis.
   static final RegExp _emojiRegex = RegExp(
     r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]',
@@ -160,8 +202,11 @@ class AppValidators {
     return '$letra-$numero';
   }
 
-  static String _limpiarCedula(String? value) =>
-      (value ?? '').trim().toUpperCase().replaceAll('.', '').replaceAll(' ', '');
+  static String _limpiarCedula(String? value) => (value ?? '')
+      .trim()
+      .toUpperCase()
+      .replaceAll('.', '')
+      .replaceAll(' ', '');
 
   /// Deja un nombre con espacios simples: "  ana   maría " -> "ana maría".
   static String limpiarNombre(String value) =>

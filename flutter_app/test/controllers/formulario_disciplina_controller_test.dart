@@ -111,6 +111,23 @@ void main() {
     ]);
   });
 
+  test('rechaza nombres que no generan identificador seguro', () async {
+    await iniciar();
+    c.agregarHorario('Mar 5:00 pm - 7:00 pm');
+
+    expect(
+      await c.guardar(
+        nombre: '🏆🎉',
+        disciplina: '',
+        lugar: '',
+        cupos: 10,
+        etiquetas: const [],
+      ),
+      'El nombre debe contener letras o números.',
+    );
+    expect(datos.guardada, isNull);
+  });
+
   test('no deja elegir a un entrenador cuyo horario choca', () async {
     await iniciar();
     c.agregarHorario('Lun 5:00 pm - 7:00 pm');
