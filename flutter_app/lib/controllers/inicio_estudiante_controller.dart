@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import '../models/conversores.dart';
 import '../models/deporte.dart';
 import '../services/inicio_estudiante_service.dart';
+import '../models/evento.dart';
+import '../services/eventos_service.dart';
 
 /// Controlador (la "C" de MVC) del inicio del estudiante.
 ///
@@ -15,10 +17,17 @@ import '../services/inicio_estudiante_service.dart';
 class InicioEstudianteController extends ChangeNotifier {
   InicioEstudianteController({
     required InicioEstudianteDataSource datos,
+    EventosDataSource? eventosDatos,
     required this.estudianteId,
     DateTime Function()? reloj,
   }) : _datos = datos,
+       _eventosDatos = eventosDatos ?? EventosService(),
        _reloj = reloj ?? DateTime.now;
+
+  final InicioEstudianteDataSource _datos;
+  final EventosDataSource _eventosDatos;
+  StreamSubscription<List<EventoDeportivo>>? _suscripcionEventos;
+  List<EventoDeportivo> _eventos = const [];
 
   final InicioEstudianteDataSource _datos;
   final DateTime Function() _reloj;
@@ -68,6 +77,27 @@ class InicioEstudianteController extends ChangeNotifier {
     return null;
   }
 
+/// Eventos de las disciplinas donde el estudiante está inscrito.
+  List<EventoDeportivo> get eventosInscritos {
+    final inscritos = _inscritos ?? const <String>{};
+    return [
+      for (final evento in _eventos)
+        if (inscritos.contains(evento.deporteId)) evento,
+    ];
+  }
+
+/// Eventos del estudiante que ocurren el día de [fecha].
+  List<EventoDeportivo> eventosDe(DateTime fecha) {
+    return [
+      for (final evento in eventosInscritos)
+        if (evento.ocurreEl(fecha)) evento,
+    ];
+  }
+
+  /// `true` si el estudiante tiene entrenamiento o evento ese día.
+  bool tieneActividadEl(DateTime fecha) =>
+      entrenamientosDe(fecha).isNotEmpty || eventosDe(fecha).isNotEmpty;
+  
   /// Empieza a escuchar. Se puede llamar de nuevo para reintentar.
   void iniciar() {
     _suscripcionInscritos?.cancel();
@@ -87,6 +117,11 @@ class InicioEstudianteController extends ChangeNotifier {
       _deportes = lista;
       notifyListeners();
     }, onError: _alFallar);
+    _suscripcionEventos?.cancel();
+    _suscripcionEventos = _eventosDatos.eventos().listen((lista) {
+      _eventos = lista;
+      notifyListeners();
+    }, onError: (_) {});
   }
 
   void _alFallar(Object error) {
@@ -106,6 +141,7 @@ class InicioEstudianteController extends ChangeNotifier {
     _liberado = true;
     _suscripcionInscritos?.cancel();
     _suscripcionDeportes?.cancel();
+    _suscripcionEventos?.cancel();
     super.dispose();
   }
 }
