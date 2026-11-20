@@ -144,12 +144,14 @@ class _CalendarioEntrenamientosState extends State<CalendarioEntrenamientos> {
 
   Widget _celda(DateTime fecha, DateTime hoy) {
     final entrena = _controller.entrenamientosDe(fecha).isNotEmpty;
+    final tieneEvento = _controller.eventosDe(fecha).isNotEmpty;
+    final conActividad = entrena || tieneEvento;
     final seleccionado = DateUtils.isSameDay(fecha, _seleccionado);
     final esHoy = DateUtils.isSameDay(fecha, hoy);
 
     final fondo = seleccionado
         ? SamanColors.azul
-        : entrena
+        : conActividad
         ? SamanColors.naranja50
         : Colors.transparent;
     final color = seleccionado ? Colors.white : SamanColors.azulNoche;
@@ -173,22 +175,38 @@ class _CalendarioEntrenamientosState extends State<CalendarioEntrenamientos> {
               '${fecha.day}',
               style: TextStyle(
                 color: color,
-                fontWeight: entrena || esHoy
+                fontWeight: conActividad || esHoy
                     ? FontWeight.w700
                     : FontWeight.w400,
               ),
             ),
             const SizedBox(height: 2),
-            Container(
-              key: entrena ? Key('entrena-${claveDeFecha(fecha)}') : null,
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: entrena
-                    ? (seleccionado ? Colors.white : SamanColors.naranja)
-                    : Colors.transparent,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (entrena)
+                  Container(
+                    key: Key('entrena-${claveDeFecha(fecha)}'),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: seleccionado ? Colors.white : SamanColors.naranja,
+                    ),
+                  ),
+                if (entrena && tieneEvento) const SizedBox(width: 3),
+                if (tieneEvento)
+                  Container(
+                    key: Key('evento-${claveDeFecha(fecha)}'),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: seleccionado ? Colors.white : SamanColors.azul,
+                    ),
+                  ),
+                if (!conActividad) const SizedBox(height: 6),
+              ],
             ),
           ],
         ),
@@ -198,6 +216,8 @@ class _CalendarioEntrenamientosState extends State<CalendarioEntrenamientos> {
 
   Widget _detalleDelDia() {
     final deportes = _controller.entrenamientosDe(_seleccionado);
+    final eventos = _controller.eventosDe(_seleccionado);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,13 +227,14 @@ class _CalendarioEntrenamientosState extends State<CalendarioEntrenamientos> {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        if (deportes.isEmpty)
+        if (deportes.isEmpty && eventos.isEmpty)
           const Text(
-            'No tienes entrenamientos este día.',
+            'No tienes entrenamientos ni eventos este día.',
             key: Key('sin-entrenamientos-dia'),
             style: TextStyle(color: SamanColors.neutro500),
           )
-        else
+        else ...[
+          // 1. Entrenamientos regulares del estudiante
           for (final deporte in deportes)
             Padding(
               key: Key('entrenamiento-${deporte.id}'),
@@ -250,7 +271,54 @@ class _CalendarioEntrenamientosState extends State<CalendarioEntrenamientos> {
                 ],
               ),
             ),
+
+          // 2. Eventos o torneos de las disciplinas inscritas
+          for (final evento in eventos)
+            Padding(
+              key: Key('evento-detalle-${evento.id}'),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.emoji_events,
+                    size: 20,
+                    color: SamanColors.azul,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TORNEO / EVENTO · ${evento.titulo}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: SamanColors.azul,
+                          ),
+                        ),
+                        Text(
+                          '${evento.deporteNombre} · ${evento.horarioTexto} · ${evento.canchaNombre}',
+                          style: const TextStyle(
+                            color: SamanColors.neutro500,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (evento.descripcion.isNotEmpty)
+                          Text(
+                            evento.descripcion,
+                            style: const TextStyle(
+                              color: SamanColors.neutro500,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ],
     );
   }
-}
