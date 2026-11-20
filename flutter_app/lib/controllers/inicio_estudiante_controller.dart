@@ -26,10 +26,6 @@ class InicioEstudianteController extends ChangeNotifier {
 
   final InicioEstudianteDataSource _datos;
   final EventosDataSource _eventosDatos;
-  StreamSubscription<List<EventoDeportivo>>? _suscripcionEventos;
-  List<EventoDeportivo> _eventos = const [];
-
-  final InicioEstudianteDataSource _datos;
   final DateTime Function() _reloj;
 
   /// Id (uid) del estudiante que inició sesión.
