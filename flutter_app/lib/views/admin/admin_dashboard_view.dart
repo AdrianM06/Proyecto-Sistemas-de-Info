@@ -118,6 +118,7 @@ class AdminDashboardView extends StatelessWidget {
       // Toda la página se desplaza: así el resumen, los accesos y la lista
       // caben también en el teléfono.
       body: ListView(
+        
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           Padding(
@@ -178,6 +179,29 @@ class AdminDashboardView extends StatelessWidget {
                   titulo: 'Gestionar estudiantes',
                   onTap: onGestionarEstudiantes,
                 ),
+                _tarjetaAcceso(
+                  context,
+                  key: const Key('tarjeta-gestion-eventos'),
+                  titulo: 'Eventos y Torneos',
+                  icono: Icons.emoji_events_outlined,
+                  colorIcono: const Color(0xFFFF8C2A), // Naranja institucional[cite: 2]
+                  onTap: () => Navigator.of(context).pushNamed(
+                    AppRoutes.gestionEventos,
+                    arguments: sesion,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _tarjetaAcceso(
+                  context,
+                  key: const Key('tarjeta-gestion-canchas'),
+                  titulo: 'Gestión de Canchas',
+                  icono: Icons.stadium_outlined,
+                  colorIcono: const Color(0xFF003B82), // Azul institucional[cite: 2]
+                  onTap: () => Navigator.of(context).pushNamed(
+                    AppRoutes.gestionCanchas,
+                    arguments: sesion,
+                  ),
+                ),
               ],
             ),
           ),
@@ -194,6 +218,39 @@ class AdminDashboardView extends StatelessWidget {
     );
   }
 
+Widget _tarjetaAcceso(
+  BuildContext context, {
+  Key? key,
+  required String titulo,
+  required String subtitulo,
+  required IconData icono,
+  required Color colorIcono,
+  required VoidCallback onTap,
+}) {
+  return Card(
+    key: key,
+    elevation: 1,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        backgroundColor: colorIcono.withValues(alpha: 0.12),
+        child: Icon(icono, color: colorIcono),
+      ),
+      title: Text(
+        titulo,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF003B82),
+        ),
+      ),
+      subtitle: Text(subtitulo),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    ),
+  );
+}
+  
   Widget _listaDeportes() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirestoreService.instance.sports.snapshots(),
