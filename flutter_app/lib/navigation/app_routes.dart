@@ -8,6 +8,8 @@ import '../views/password_recovery_screen.dart';
 import '../views/profile_view.dart';
 import '../views/registration_screen.dart';
 import 'vistas_por_rol.dart';
+import '../views/admin/gestion_canchas_view.dart';
+import '../views/admin/gestion_eventos_view.dart';
 
 /// Enrutador de la app: nombres de las rutas y qué pantalla abre cada una.
 ///
@@ -37,6 +39,8 @@ class AppRoutes {
   static const String registrarEntrenador = '/admin/entrenadores/nuevo';
   static const String gestionEntrenadores = '/admin/entrenadores';
   static const String gestionDisciplinas = '/admin/disciplinas';
+  static const String gestionCanchas = '/admin/canchas';
+  static const String gestionEventos = '/admin/eventos';
 
   /// Ruta de inicio según el rol guardado en la base de datos.
   static String rutaParaRol(String rol) {
@@ -165,6 +169,13 @@ class AppRoutes {
         return _rutaAdmin(settings, construirGestionEntrenadores);
       case gestionDisciplinas:
         return _rutaAdmin(settings, construirGestionDisciplinas);
+      case gestionCanchas:
+        return _rutaAdmin(settings, (_, __) => const GestionCanchasView());
+      case gestionEventos:
+        return _rutaAdmin(
+          settings,
+          (_, sesion) => GestionEventosView(adminId: sesion.uid),
+        );
       default:
         return _ruta(
           const RouteSettings(name: landing),
