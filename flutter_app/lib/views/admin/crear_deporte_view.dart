@@ -5,6 +5,7 @@ import '../../models/deporte.dart';
 import '../../models/usuario.dart';
 import '../../services/gestion_entrenadores_service.dart';
 import '../../utils/horarios.dart';
+import 'gestion_canchas_view.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFFF8C2A);
@@ -189,12 +190,51 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                   const SizedBox(height: 20),
                   _seccionHorarios(),
                   const SizedBox(height: 20),
-                  TextFormField(
-                    controller: _lugarCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Lugar / Cancha',
-                      border: OutlineInputBorder(),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final canchas = _controller.canchasActivas;
+                      final nombres = {for (final c in canchas) c.nombre};
+                      final actual = _lugarCtrl.text.trim();
+                      // Si el deporte tenía un lugar previo que no está en la lista, lo conserva como opción
+                      final opciones = [
+                        if (actual.isNotEmpty && !nombres.contains(actual)) actual,
+                        for (final c in canchas) c.nombre,
+                      ];
+                      
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: opciones.contains(actual) ? actual : null,
+                              decoration: const InputDecoration(
+                                labelText: 'Lugar / Cancha',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: [
+                                for (final nombre in opciones)
+                                  DropdownMenuItem(value: nombre, child: Text(nombre)),
+                              ],
+                              onChanged: (valor) {
+                                setState(() => _lugarCtrl.text = valor ?? '');
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: IconButton.filled(
+                              tooltip: 'Gestionar lista de canchas',
+                              style: IconButton.styleFrom(backgroundColor: _azul),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const GestionCanchasView()),
+                              ),
+                              icon: const Icon(Icons.add),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
