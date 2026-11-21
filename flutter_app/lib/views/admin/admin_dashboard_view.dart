@@ -9,6 +9,7 @@ import '../../services/gestion_entrenadores_service.dart';
 import '../../utils/choques_horario.dart';
 import '../../utils/horarios.dart';
 import 'panel_resumen_admin.dart';
+import '../../navigation/app_routes.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFF58220);
@@ -185,6 +186,7 @@ class AdminDashboardView extends StatelessWidget {
                   titulo: 'Eventos y Torneos',
                   icono: Icons.emoji_events_outlined,
                   colorIcono: const Color(0xFFFF8C2A), // Naranja institucional[cite: 2]
+                  subtitulo: 'Programar torneos y asignar canchas',
                   onTap: () => Navigator.of(context).pushNamed(
                     AppRoutes.gestionEventos,
                     arguments: sesion,
@@ -197,6 +199,7 @@ class AdminDashboardView extends StatelessWidget {
                   titulo: 'Gestión de Canchas',
                   icono: Icons.stadium_outlined,
                   colorIcono: const Color(0xFF003B82), // Azul institucional[cite: 2]
+                  subtitulo: 'Administrar canchas disponibles',
                   onTap: () => Navigator.of(context).pushNamed(
                     AppRoutes.gestionCanchas,
                     arguments: sesion,
