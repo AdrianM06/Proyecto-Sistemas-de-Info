@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../models/evento.dart';
 
@@ -17,16 +18,18 @@ abstract class EventosDataSource {
 }
 
 class EventosService implements EventosDataSource {
-  EventosService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  EventosService({FirebaseFirestore? firestore}) : _firestore = firestore;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestore;
 
-  late final _coleccion = _firestore.collection('events');
+  FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
 
   @override
   Stream<List<EventoDeportivo>> eventos() {
-    return _coleccion.snapshots().map((snap) {
+    if (_firestore == null && Firebase.apps.isEmpty) {
+      return const Stream.empty();
+    }
+    return _db.collection('events').snapshots().map((snap) {
       final lista = snap.docs.map(EventoDeportivo.fromFirestore).toList()
         ..sort((a, b) {
           final cmp = a.fecha.compareTo(b.fecha);
@@ -39,7 +42,8 @@ class EventosService implements EventosDataSource {
   @override
   Future<void> crearEvento(EventoDeportivo evento) async {
     try {
-      final snap = await _coleccion.get();
+      final coleccion = _db.collection('events');
+      final snap = await coleccion.get();
       final existentes = snap.docs.map(EventoDeportivo.fromFirestore);
       for (final otro in existentes) {
         if (evento.chocaEnCanchaCon(otro)) {
@@ -49,7 +53,7 @@ class EventosService implements EventosDataSource {
           );
         }
       }
-      await _coleccion.add(evento.toJson());
+      await coleccion.add(evento.toJson());
     } on EventosException {
       rethrow;
     } on FirebaseException catch (e) {
@@ -64,7 +68,7 @@ class EventosService implements EventosDataSource {
   @override
   Future<void> eliminarEvento(String id) async {
     try {
-      await _coleccion.doc(id).delete();
+      await _db.collection('events').doc(id).delete();
     } on FirebaseException {
       throw const EventosException('No se pudo eliminar el evento.');
     }
