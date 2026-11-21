@@ -4,16 +4,11 @@ import 'package:flutter/foundation.dart';
 
 import '../models/conversores.dart';
 import '../models/deporte.dart';
-import '../services/inicio_estudiante_service.dart';
 import '../models/evento.dart';
 import '../services/eventos_service.dart';
+import '../services/inicio_estudiante_service.dart';
 
 /// Controlador (la "C" de MVC) del inicio del estudiante.
-///
-/// Escucha en tiempo real las inscripciones del estudiante y los deportes.
-/// Cuando el estudiante se inscribe o se retira, o el administrador cambia un
-/// horario, el calendario y la lista de disciplinas se actualizan solos, sin
-/// recargar la página.
 class InicioEstudianteController extends ChangeNotifier {
   InicioEstudianteController({
     required InicioEstudianteDataSource datos,
@@ -33,8 +28,10 @@ class InicioEstudianteController extends ChangeNotifier {
 
   StreamSubscription<Set<String>>? _suscripcionInscritos;
   StreamSubscription<List<Deporte>>? _suscripcionDeportes;
+  StreamSubscription<List<EventoDeportivo>>? _suscripcionEventos;
   Set<String>? _inscritos;
   List<Deporte>? _deportes;
+  List<EventoDeportivo> _eventos = const [];
   String? _error;
   bool _liberado = false;
 
@@ -63,17 +60,7 @@ class InicioEstudianteController extends ChangeNotifier {
     ];
   }
 
-  /// Primer día, desde hoy y dentro de los próximos 7, con entrenamiento.
-  DateTime? get proximoEntrenamiento {
-    final inicio = hoy;
-    for (var i = 0; i < 7; i++) {
-      final dia = DateTime(inicio.year, inicio.month, inicio.day + i);
-      if (entrenamientosDe(dia).isNotEmpty) return dia;
-    }
-    return null;
-  }
-
-/// Eventos de las disciplinas donde el estudiante está inscrito.
+  /// Eventos de las disciplinas donde el estudiante está inscrito.
   List<EventoDeportivo> get eventosInscritos {
     final inscritos = _inscritos ?? const <String>{};
     return [
@@ -82,7 +69,7 @@ class InicioEstudianteController extends ChangeNotifier {
     ];
   }
 
-/// Eventos del estudiante que ocurren el día de [fecha].
+  /// Eventos del estudiante que ocurren el día de [fecha].
   List<EventoDeportivo> eventosDe(DateTime fecha) {
     return [
       for (final evento in eventosInscritos)
@@ -93,14 +80,26 @@ class InicioEstudianteController extends ChangeNotifier {
   /// `true` si el estudiante tiene entrenamiento o evento ese día.
   bool tieneActividadEl(DateTime fecha) =>
       entrenamientosDe(fecha).isNotEmpty || eventosDe(fecha).isNotEmpty;
-  
+
+  /// Primer día, desde hoy y dentro de los próximos 7, con entrenamiento.
+  DateTime? get proximoEntrenamiento {
+    final inicio = hoy;
+    for (var i = 0; i < 7; i++) {
+      final dia = DateTime(inicio.year, inicio.month, inicio.day + i);
+      if (entrenamientosDe(dia).isNotEmpty) return dia;
+    }
+    return null;
+  }
+
   /// Empieza a escuchar. Se puede llamar de nuevo para reintentar.
   void iniciar() {
     _suscripcionInscritos?.cancel();
     _suscripcionDeportes?.cancel();
+    _suscripcionEventos?.cancel();
     _error = null;
     _inscritos = null;
     _deportes = null;
+    _eventos = const [];
     notifyListeners();
 
     _suscripcionInscritos = _datos.deportesInscritos(estudianteId).listen((
@@ -113,7 +112,6 @@ class InicioEstudianteController extends ChangeNotifier {
       _deportes = lista;
       notifyListeners();
     }, onError: _alFallar);
-    _suscripcionEventos?.cancel();
     _suscripcionEventos = _eventosDatos.eventos().listen((lista) {
       _eventos = lista;
       notifyListeners();
