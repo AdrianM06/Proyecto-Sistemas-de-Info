@@ -7,9 +7,8 @@ const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFF58220);
 const _rojo = Color(0xFFC62828);
 
-/// Resumen en números del panel del administrador (CU14): estudiantes,
-/// entrenadores, disciplinas e inscripciones activas, con un botón para
-/// actualizar las cifras.
+/// Resumen en números y gráficos del panel del administrador (CU14), con un
+/// botón para actualizar las cifras.
 class PanelResumenAdmin extends StatefulWidget {
   const PanelResumenAdmin({super.key, required this.datos});
 
@@ -167,23 +166,196 @@ class _PanelResumenAdminState extends State<PanelResumenAdmin> {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columnas = constraints.maxWidth >= 900
-            ? 4
-            : (constraints.maxWidth >= 420 ? 2 : 1);
-        const espacio = 12.0;
-        final ancho =
-            (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
-        return Wrap(
-          spacing: espacio,
-          runSpacing: espacio,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columnas = constraints.maxWidth >= 900
+                ? 4
+                : (constraints.maxWidth >= 420 ? 2 : 1);
+            const espacio = 12.0;
+            final ancho =
+                (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
+            return Wrap(
+              spacing: espacio,
+              runSpacing: espacio,
+              children: [
+                for (final tarjeta in tarjetas)
+                  SizedBox(width: ancho, child: tarjeta),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const espacio = 12.0;
+            final columnas = constraints.maxWidth >= 620 ? 2 : 1;
+            final ancho =
+                (constraints.maxWidth - espacio * (columnas - 1)) / columnas;
+            return Wrap(
+              spacing: espacio,
+              runSpacing: espacio,
+              children: [
+                SizedBox(
+                  width: ancho,
+                  child: _GraficoBarras(
+                    key: const Key('grafico-estudiantes'),
+                    titulo: 'Estado de estudiantes',
+                    barras: r.estudiantes == 0
+                        ? const []
+                        : [
+                            _DatoBarra(
+                              clave: 'grafico-estudiantes-activos',
+                              etiqueta: 'Activos',
+                              valor: r.estudiantesActivos,
+                              fraccion: r.estudiantesActivos / r.estudiantes,
+                              color: _azul,
+                            ),
+                            _DatoBarra(
+                              clave: 'grafico-estudiantes-deshabilitados',
+                              etiqueta: 'Deshabilitados',
+                              valor: r.estudiantesDeshabilitados,
+                              fraccion: (r.estudiantesDeshabilitados /
+                                      r.estudiantes)
+                                  .clamp(0.0, 1.0),
+                              color: _naranja,
+                            ),
+                          ],
+                    mensajeVacio: 'No hay estudiantes registrados.',
+                  ),
+                ),
+                SizedBox(
+                  width: ancho,
+                  child: _GraficoBarras(
+                    key: const Key('grafico-cupos'),
+                    titulo: 'Ocupación de cupos',
+                    barras: r.cuposTotales <= 0
+                        ? const []
+                        : [
+                            _DatoBarra(
+                              clave: 'grafico-cupos-ocupados',
+                              etiqueta: 'Ocupados',
+                              valor: r.inscripcionesActivas,
+                              fraccion: r.ocupacion!,
+                              color: _naranja,
+                            ),
+                            _DatoBarra(
+                              clave: 'grafico-cupos-disponibles',
+                              etiqueta: 'Disponibles',
+                              valor: (r.cuposTotales - r.inscripcionesActivas)
+                                  .clamp(0, r.cuposTotales),
+                              fraccion: (1 - r.ocupacion!).clamp(0.0, 1.0),
+                              color: _azul,
+                            ),
+                          ],
+                    mensajeVacio: 'No hay cupos definidos.',
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _DatoBarra {
+  const _DatoBarra({
+    required this.clave,
+    required this.etiqueta,
+    required this.valor,
+    required this.fraccion,
+    required this.color,
+  });
+
+  final String clave;
+  final String etiqueta;
+  final int valor;
+  final double fraccion;
+  final Color color;
+}
+
+class _GraficoBarras extends StatelessWidget {
+  const _GraficoBarras({
+    super.key,
+    required this.titulo,
+    required this.barras,
+    required this.mensajeVacio,
+  });
+
+  final String titulo;
+  final List<_DatoBarra> barras;
+  final String mensajeVacio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE3E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            titulo,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          ),
+          const SizedBox(height: 16),
+          if (barras.isEmpty)
+            Text(mensajeVacio, style: const TextStyle(color: Colors.black54))
+          else
+            for (var i = 0; i < barras.length; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              _BarraGrafico(dato: barras[i]),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BarraGrafico extends StatelessWidget {
+  const _BarraGrafico({required this.dato});
+
+  final _DatoBarra dato;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            for (final tarjeta in tarjetas)
-              SizedBox(width: ancho, child: tarjeta),
+            Expanded(
+              child: Text(
+                dato.etiqueta,
+                style: const TextStyle(color: Colors.black54, fontSize: 13),
+              ),
+            ),
+            Text(
+              '${dato.valor}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            key: Key(dato.clave),
+            value: dato.fraccion,
+            minHeight: 10,
+            color: dato.color,
+            backgroundColor: const Color(0xFFF1F3F7),
+          ),
+        ),
+      ],
     );
   }
 }
