@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'bloque_horario.dart';
 import 'conversores.dart';
 
-/// Modelo de un documento de la colección `events` de Cloud Firestore.
 class EventoDeportivo {
   const EventoDeportivo({
     required this.id,
@@ -26,33 +25,26 @@ class EventoDeportivo {
   final String deporteNombre;
   final String canchaId;
   final String canchaNombre;
-
-  /// Fecha del evento (sin hora).
   final DateTime fecha;
-
-  /// Hora de inicio en minutos desde la medianoche (ej. 960 = 4:00 pm).
   final int horaInicio;
-
-  /// Hora de fin en minutos desde la medianoche.
   final int horaFin;
   final String creadoPor;
 
-  /// Texto formateado, por ejemplo "4:00 pm – 6:00 pm".
   String get horarioTexto =>
       '${BloqueHorario.horaTexto(horaInicio)} – ${BloqueHorario.horaTexto(horaFin)}';
 
-  /// `true` si el evento ocurre el mismo día calendario que [dia].
   bool ocurreEl(DateTime dia) =>
       fecha.year == dia.year &&
       fecha.month == dia.month &&
       fecha.day == dia.day;
 
-  /// `true` si comparte cancha, fecha y se solapa en horario con [otro].
   bool chocaEnCanchaCon(EventoDeportivo otro) {
     if (id.isNotEmpty && id == otro.id) return false;
     if (canchaId != otro.canchaId || !ocurreEl(otro.fecha)) return false;
-    return horaInicio < otro.horaFin && otro.horaInicio < horaFin;
+    return horaInicio < otro.horaFin && otro.horaInicio < finReal(otro);
   }
+
+  int finReal(EventoDeportivo otro) => otro.horaFin;
 
   factory EventoDeportivo.fromJson(
     Map<String, dynamic> json, {
