@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'conversores.dart';
 
+/// Modelo de un documento de la colección `courts` de Cloud Firestore.
 class Cancha {
   const Cancha({
     required this.id,
@@ -27,8 +28,9 @@ class Cancha {
     );
   }
 
-  factory Cancha.fromFirestore(DocumentSnapshot> doc) {
-    return Cancha.fromJson(doc.data() ?? const {}, id: doc.id);
+  factory Cancha.fromFirestore(DocumentSnapshot doc) {
+    final dynamic data = doc.data();
+    return Cancha.fromJson(data ?? const {}, id: doc.id);
   }
 
   Map<String, dynamic> toJson() => {
