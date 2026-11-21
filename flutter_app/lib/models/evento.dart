@@ -66,11 +66,10 @@ class EventoDeportivo {
     );
   }
 
-  factory EventoDeportivo.fromFirestore(
-    DocumentSnapshot> doc,
-  ) {
-    return EventoDeportivo.fromJson(doc.data() ?? const {}, id: doc.id);
-  }
+  factory EventoDeportivo.fromFirestore(DocumentSnapshot doc) {
+  final data = doc.data() as Map<String, dynamic>?;
+  return EventoDeportivo.fromJson(data ?? const {}, id: doc.id);
+}
 
   Map<String, dynamic> toJson() => {
         'titulo': titulo,
