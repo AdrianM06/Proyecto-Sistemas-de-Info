@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'conversores.dart';
 
-/// Modelo de un documento de la colección `courts` de Cloud Firestore.
 class Cancha {
   const Cancha({
     required this.id,
