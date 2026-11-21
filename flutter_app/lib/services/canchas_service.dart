@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../models/cancha.dart';
 
@@ -18,16 +19,18 @@ abstract class CanchasDataSource {
 }
 
 class CanchasService implements CanchasDataSource {
-  CanchasService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  CanchasService({FirebaseFirestore? firestore}) : _firestore = firestore;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestore;
 
-  late final _coleccion = _firestore.collection('courts');
+  FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
 
   @override
   Stream<List<Cancha>> canchas() {
-    return _coleccion.snapshots().map((snap) {
+    if (_firestore == null && Firebase.apps.isEmpty) {
+      return const Stream.empty();
+    }
+    return _db.collection('courts').snapshots().map((snap) {
       final lista = snap.docs.map(Cancha.fromFirestore).toList()
         ..sort(
           (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
@@ -47,7 +50,8 @@ class CanchasService implements CanchasDataSource {
     }
 
     try {
-      final existentes = await _coleccion.get();
+      final coleccion = _db.collection('courts');
+      final existentes = await coleccion.get();
       final duplicada = existentes.docs.any(
         (d) =>
             (d.data()['nombre'] ?? '').toString().trim().toLowerCase() ==
@@ -57,7 +61,7 @@ class CanchasService implements CanchasDataSource {
         throw const CanchasException('Ya existe una cancha con ese nombre.');
       }
 
-      await _coleccion.add({
+      await coleccion.add({
         'nombre': limpio,
         'ubicacion': ubicacion.trim(),
         'activa': true,
@@ -76,7 +80,7 @@ class CanchasService implements CanchasDataSource {
   @override
   Future<void> cambiarEstado(String id, bool activa) async {
     try {
-      await _coleccion.doc(id).update({'activa': activa});
+      await _db.collection('courts').doc(id).update({'activa': activa});
     } on FirebaseException {
       throw const CanchasException('No se pudo actualizar la cancha.');
     }
@@ -85,7 +89,7 @@ class CanchasService implements CanchasDataSource {
   @override
   Future<void> eliminarCancha(String id) async {
     try {
-      await _coleccion.doc(id).delete();
+      await _db.collection('courts').doc(id).delete();
     } on FirebaseException {
       throw const CanchasException('No se pudo eliminar la cancha.');
     }
