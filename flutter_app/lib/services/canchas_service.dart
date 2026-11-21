@@ -23,8 +23,7 @@ class CanchasService implements CanchasDataSource {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference> get _coleccion =>
-      _firestore.collection('courts');
+  late final _coleccion = _firestore.collection('courts');
 
   @override
   Stream<List<Cancha>> canchas() {
