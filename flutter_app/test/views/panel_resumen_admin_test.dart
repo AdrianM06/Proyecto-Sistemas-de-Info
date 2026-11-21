@@ -85,6 +85,44 @@ void main() {
     expect(inscripciones.top, estudiantes.top);
   });
 
+  testWidgets('muestra barras proporcionales para estudiantes y cupos', (
+    tester,
+  ) async {
+    await abrir(tester, _Datos([_resumen]));
+
+    double fraccion(String clave) =>
+        tester.widget<LinearProgressIndicator>(find.byKey(Key(clave))).value!;
+
+    expect(fraccion('grafico-estudiantes-activos'), closeTo(115 / 120, 0.001));
+    expect(
+      fraccion('grafico-estudiantes-deshabilitados'),
+      closeTo(5 / 120, 0.001),
+    );
+    expect(fraccion('grafico-cupos-ocupados'), closeTo(0.45, 0.001));
+    expect(fraccion('grafico-cupos-disponibles'), closeTo(0.55, 0.001));
+    expect(find.text('Estado de estudiantes'), findsOneWidget);
+    expect(find.text('Ocupación de cupos'), findsOneWidget);
+  });
+
+  testWidgets('indica cuando faltan datos para dibujar las barras', (
+    tester,
+  ) async {
+    const resumenVacio = ResumenAdmin(
+      estudiantes: 0,
+      estudiantesDeshabilitados: 0,
+      entrenadores: 0,
+      disciplinas: 0,
+      disciplinasSinEntrenador: 0,
+      inscripcionesActivas: 0,
+      cuposTotales: 0,
+    );
+    await abrir(tester, _Datos([resumenVacio]));
+
+    expect(find.text('No hay estudiantes registrados.'), findsOneWidget);
+    expect(find.text('No hay cupos definidos.'), findsOneWidget);
+    expect(find.byKey(const Key('grafico-cupos-ocupados')), findsNothing);
+  });
+
   testWidgets('en el teléfono las tarjetas se apilan sin desbordes', (
     tester,
   ) async {
