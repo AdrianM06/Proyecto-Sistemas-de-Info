@@ -22,8 +22,7 @@ class EventosService implements EventosDataSource {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference> get _coleccion =>
-      _firestore.collection('events');
+  late final _coleccion = _firestore.collection('events');
 
   @override
   Stream<List<EventoDeportivo>> eventos() {
