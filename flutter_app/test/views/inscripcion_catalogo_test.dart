@@ -21,14 +21,19 @@ class _Inscripciones implements InscripcionesDataSource {
   };
 
   @override
-  Future<void> inscribir({
-    required String estudianteId,
-    required Deporte deporte,
-  }) async {
-    llamadas++;
-    if (fallo != null) throw InscripcionException(fallo!);
-    _inscrito.add(deporte.id);
-  }
+Future<void> validarElegibilidad({
+  required String estudianteId,
+  required Deporte deporte,
+}) async {}
+  
+  @override
+Future<void> inscribir({
+  required String estudianteId,
+  required Deporte deporte,
+  String? paypalOrderId,
+  double? montoPagado,
+  String? paypalPayerEmail,
+}) async {
 
   @override
   Future<void> cancelar({
