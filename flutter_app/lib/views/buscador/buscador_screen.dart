@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
+import '../../config/paypal_config.dart';
 import '../../controllers/buscador_controller.dart';
 import '../../models/bloque_horario.dart';
 import '../../models/deporte.dart';
