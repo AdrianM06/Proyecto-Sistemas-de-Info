@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/deporte.dart';
 import '../models/inscripcion.dart';
 import 'firestore_service.dart';
@@ -35,16 +33,13 @@ class PagosService implements PagosDataSource {
 
   @override
   Future<List<ComprobantePago>> pagosDeEstudiante(String estudianteId) async {
-    final resultados = await Future.wait([
-      _firestore.enrollments
-          .where('estudianteId', isEqualTo: estudianteId)
-          .get(),
-      _firestore.sports.get(),
-    ]);
+    final inscripcionesFuture = _firestore.enrollments
+        .where('estudianteId', isEqualTo: estudianteId)
+        .get();
+    final deportesFuture = _firestore.sports.get();
 
-    final inscripcionesSnap =
-        resultados[0] as QuerySnapshot>;
-    final deportesSnap = resultados[1] as QuerySnapshot>;
+    final inscripcionesSnap = await inscripcionesFuture;
+    final deportesSnap = await deportesFuture;
 
     final deportesPorId = <String, Deporte>{
       for (final doc in deportesSnap.docs) doc.id: Deporte.fromFirestore(doc),
@@ -67,7 +62,6 @@ class PagosService implements PagosDataSource {
       );
     }
 
-    // Ordena del más reciente al más antiguo en memoria.
     comprobantes.sort((a, b) {
       final fechaA = a.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
       final fechaB = b.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
