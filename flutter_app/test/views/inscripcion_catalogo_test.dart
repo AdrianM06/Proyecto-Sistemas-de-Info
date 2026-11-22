@@ -100,6 +100,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> aprobarDialogoPaypal(WidgetTester tester) async {
+    final botonVerificar = find.text('Ya pagué, verificar');
+    if (botonVerificar.evaluate().isEmpty) {
+      final textosVisibles = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data)
+          .whereType<String>()
+          .toList();
+      fail(
+        'No se abrió el diálogo de espera de PayPal. '
+        'Textos visibles en pantalla: $textosVisibles',
+      );
+    }
+    await tester.tap(botonVerificar);
+    await tester.pumpAndSettle();
+  }
+
   String? textoDelBoton(WidgetTester tester) {
     final texto = find.descendant(
       of: find.byKey(const Key('boton-inscribirme')),
@@ -181,8 +198,7 @@ void main() {
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Ya pagué, verificar'));
-      await tester.pumpAndSettle();
+      await aprobarDialogoPaypal(tester);
 
       expect(inscripciones.llamadas, 1);
       expect(find.byKey(const Key('boton-inscribirme')), findsNothing);
@@ -254,8 +270,7 @@ void main() {
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Ya pagué, verificar'));
-      await tester.pumpAndSettle();
+      await aprobarDialogoPaypal(tester);
 
       expect(find.text('Ese deporte ya no tiene cupos.'), findsOneWidget);
       expect(textoDelBoton(tester), 'Inscribirme');
