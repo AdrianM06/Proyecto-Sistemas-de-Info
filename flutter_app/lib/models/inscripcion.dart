@@ -52,7 +52,7 @@ class Inscripcion {
     );
   }
 
-  factory Inscripcion.fromFirestore(DocumentSnapshot> doc) {
+factory Inscripcion.fromFirestore(DocumentSnapshot> doc) {
     return Inscripcion.fromJson(doc.data() ?? const {}, id: doc.id);
   }
 
