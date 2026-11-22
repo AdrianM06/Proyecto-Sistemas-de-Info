@@ -643,8 +643,10 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     }
 
     final uriPago = Uri.parse(orden.approveUrl);
-    await launchUrl(uriPago, mode: LaunchMode.externalApplication);
-
+    try {
+      await launchUrl(uriPago, mode: LaunchMode.externalApplication);
+    } catch (_) {
+    }
     if (!mounted) return;
 
     // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
