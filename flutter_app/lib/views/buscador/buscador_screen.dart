@@ -254,6 +254,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
+  /// Hoja para elegir la franja horaria (por ejemplo, de 2:00 pm a 6:00 pm).
+  /// Se combina con el filtro por día.
   Future<void> _elegirRangoHoras() async {
     const primera = BuscadorController.primeraHora;
     const ultima = BuscadorController.ultimaHora;
@@ -335,6 +337,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     }
   }
 
+  /// Abre el detalle de la disciplina con sus reseñas y su promedio.
   void _abrirResenas(Deporte deporte) {
     final pagina = widget.paginaDeResenas ??
         (deporte, estudianteId) => DetalleDeporteView.conFirebase(
@@ -580,6 +583,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
     aviso.value = null;
 
+    // 1. Verificar cupos y estado activo antes de crear la orden en PayPal.
     final errorPrevio = await _controller.validarAntesDePagar(deporte);
     if (!mounted) return;
     if (errorPrevio != null) {
@@ -589,6 +593,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
     final montoTexto = deporte.precio.toStringAsFixed(2);
 
+    // 2. Confirmar el monto con el estudiante antes de ir a PayPal.
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (contextoDialogo) => AlertDialog(
@@ -616,6 +621,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
     if (confirmar != true || !mounted) return;
 
+    // 3. Crear la orden en PayPal Sandbox y abrir el enlace en Web o Móvil.
     final paypal = widget.paypalService ?? PaypalService();
     PaypalOrdenCreada orden;
     try {
@@ -639,10 +645,13 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     final uriPago = Uri.parse(orden.approveUrl);
     try {
       await launchUrl(uriPago, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    } catch (_) {
+      // En entornos de prueba sin navegador externo, continúa al diálogo.
+    }
 
     if (!mounted) return;
 
+    // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
     final resultadoPago = await showDialog<PaypalResultadoPago?>(
       context: context,
       barrierDismissible: false,
@@ -662,6 +671,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
       return;
     }
 
+    // 5. Registrar la inscripción validada en Firestore.
     final error = await _controller.inscribirse(
       deporte,
       paypalOrderId: resultadoPago.orderId,
@@ -837,32 +847,34 @@ class _DialogoEsperandoPaypalState extends State<_DialogoEsperandoPaypal> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Completando pago en PayPal'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '1. Inicia sesión con tu cuenta Sandbox en la ventana de PayPal.\n'
-            '2. Pulsa "Completar compra".\n'
-            '3. Vuelve aquí; detectaremos el pago automáticamente.',
-          ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: () => launchUrl(
-              widget.approveUri,
-              mode: LaunchMode.externalApplication,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '1. Inicia sesión con tu cuenta Sandbox en la ventana de PayPal.\n'
+              '2. Pulsa "Completar compra".\n'
+              '3. Vuelve aquí; detectaremos el pago automáticamente.',
             ),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: const Text('Abrir enlace de PayPal nuevamente'),
-          ),
-          if (_mensajeEstado != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _mensajeEstado!,
-              style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => launchUrl(
+                widget.approveUri,
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir enlace de PayPal nuevamente'),
             ),
+            if (_mensajeEstado != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _mensajeEstado!,
+                style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
       actions: [
         TextButton(
