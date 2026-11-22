@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../controllers/perfil_estudiante_controller.dart';
 import '../../services/foto_perfil_service.dart';
 import '../../services/perfil_estudiante_service.dart';
-import '../../utils/formato_moneda.dart';
 import '../widgets/avatar_usuario.dart';
 import 'editar_datos_estudiante_dialog.dart';
 import 'estudiante_scaffold.dart';
@@ -13,14 +12,13 @@ import 'pagos_estudiante_view.dart';
 // Colores del diseño "Perfil Estudiante".
 const _azul = Color(0xFF003087);
 const _naranja = Color(0xFFFF8C2A);
-const _grisCaja = Color(0xFFF2F2F7);
 const _grisTexto = Color(0xFF6B6B78);
 
 /// Página de perfil del estudiante (ruta `/estudiante/perfil`).
 ///
 /// Usa la misma barra y el mismo menú hamburguesa que el Inicio
 /// ([EstudianteScaffold]) y muestra tres tarjetas blancas: "Perfil" (foto,
-/// datos, Editar datos y Cambiar clave), "Saldo en cuenta" y
+/// datos, Editar datos y Cambiar clave), "Pagos" y
 /// "Retirar disciplina".
 class PerfilEstudianteView extends StatefulWidget {
   const PerfilEstudianteView({
@@ -312,7 +310,7 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
             children: [
               _tarjetaPerfil(perfil),
               const SizedBox(height: 32),
-              _tarjetaSaldo(perfil),
+              _tarjetaPagos(),
               const SizedBox(height: 32),
               _tarjetaRetirar(),
             ],
@@ -441,49 +439,12 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
     );
   }
 
-  Widget _tarjetaSaldo(PerfilEstudiante perfil) {
+  Widget _tarjetaPagos() {
     return _Tarjeta(
-      key: const Key('tarjeta-saldo'),
-      titulo: 'Saldo en cuenta',
+      key: const Key('tarjeta-pagos'),
+      titulo: 'Pagos',
       children: [
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: _grisCaja,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Saldo adeudado',
-                      style: TextStyle(color: _grisTexto, fontSize: 12),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Moneda: Bs.',
-                      style: TextStyle(color: _grisTexto, fontSize: 8),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                formatoBolivares(perfil.saldo),
-                key: const Key('saldo-cuenta'),
-                style: const TextStyle(
-                  color: _azul,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
         _AccionConDescripcion(
           botonKey: const Key('boton-ver-pagos'),
           textoBoton: 'Ver pagos',
