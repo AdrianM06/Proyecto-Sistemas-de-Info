@@ -1,16 +1,16 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import '../../services/paypal_service.dart';
-import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
+
 import '../../config/paypal_config.dart';
 import '../../controllers/buscador_controller.dart';
 import '../../models/bloque_horario.dart';
 import '../../models/deporte.dart';
 import '../../services/buscador_service.dart';
 import '../../services/inscripcion_service.dart';
+import '../../services/paypal_service.dart';
 import '../entrenador/widgets/entrenador_widgets.dart';
 import '../theme/saman_colors.dart';
 import 'detalle_deporte_view.dart';
@@ -151,7 +151,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     label: Text(
                       _controller.filtraPorHoras
                           ? '${BloqueHorario.horaTexto(_controller.desde!)} – '
-                                '${BloqueHorario.horaTexto(_controller.hasta!)}'
+                              '${BloqueHorario.horaTexto(_controller.hasta!)}'
                           : 'Horario',
                     ),
                     selected: _controller.filtraPorHoras,
@@ -237,7 +237,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                             return TarjetaDeporte(
                               key: Key('tarjeta-${deporte.id}'),
                               deporte: deporte,
-                              cuposDisponibles: _controller.cuposDisponiblesDe(deporte),
+                              cuposDisponibles:
+                                  _controller.cuposDisponiblesDe(deporte),
                               onTap: () => _mostrarDetalle(deporte),
                             );
                           },
@@ -274,7 +275,9 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
               children: [
                 Text(
                   '¿A qué hora puedes entrenar?',
-                  style: Theme.of(contextoHoja).textTheme.titleMedium
+                  style: Theme.of(contextoHoja)
+                      .textTheme
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
@@ -439,7 +442,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} USD',
+                      'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} ${PaypalConfig.moneda}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: SamanColors.azulNoche,
@@ -565,7 +568,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
-Future<void> _inscribirme(
+  Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
     ValueNotifier<_Aviso?> aviso,
@@ -588,15 +591,15 @@ Future<void> _inscribirme(
 
     final montoTexto = deporte.precio.toStringAsFixed(2);
 
-    // 2. Confirmar el monto con el estudiante.
+    // 2. Confirmar el monto con el estudiante antes de ir a PayPal.
     final confirmar = await showDialog<bool>(
-      context: contextoHoja,
+      context: context,
       builder: (contextoDialogo) => AlertDialog(
         key: const Key('dialogo-inscripcion'),
         title: const Text('Inscripción y Pago'),
         content: Text(
           'Para inscribirte en ${deporte.nombre} debes completar el pago de '
-          '\$$montoTexto USD mediante PayPal.\n\n'
+          '\$$montoTexto ${PaypalConfig.moneda} mediante PayPal.\n\n'
           'Se abrirá la ventana oficial de PayPal Sandbox para aprobar el pago.',
         ),
         actions: [
@@ -644,7 +647,7 @@ Future<void> _inscribirme(
 
     // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
     final resultadoPago = await showDialog<PaypalResultadoPago?>(
-      context: contextoHoja,
+      context: context,
       barrierDismissible: false,
       builder: (_) => _DialogoEsperandoPaypal(
         paypal: paypal,
@@ -688,7 +691,9 @@ Future<void> _inscribirme(
       context: contextoHoja,
       builder: (contextoDialogo) => AlertDialog(
         title: const Text('Cancelar Inscripción'),
-        content: Text('¿Seguro que deseas retirarte de ${deporte.nombre}? Se liberará tu cupo.'),
+        content: Text(
+          '¿Seguro que deseas retirarte de ${deporte.nombre}? Se liberará tu cupo.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contextoDialogo).pop(false),
@@ -823,7 +828,9 @@ class _DialogoEsperandoPaypalState extends State<_DialogoEsperandoPaypal> {
     } catch (_) {
       if (!mounted) return;
       if (!silencioso) {
-        setState(() => _mensajeEstado = 'No se pudo consultar PayPal. Reintenta.');
+        setState(
+          () => _mensajeEstado = 'No se pudo consultar PayPal. Reintenta.',
+        );
       }
     } finally {
       if (mounted) setState(() => _verificando = false);
