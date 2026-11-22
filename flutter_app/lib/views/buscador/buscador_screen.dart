@@ -434,6 +434,14 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                       'Inscritos: ${_controller.inscritosDe(deporte)}',
                       style: const TextStyle(color: SamanColors.neutro500),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} USD',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: SamanColors.azulNoche,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextButton.icon(
                       key: const Key('boton-ver-resenas'),
@@ -554,7 +562,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
-  Future<void> _inscribirme(
+Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
     ValueNotifier<_Aviso?> aviso,
@@ -565,21 +573,38 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
       return;
     }
 
+    aviso.value = null;
+
+    // 1. Verificar cupos y estado del estudiante antes de abrir PayPal.
+    final errorPrevio = await _controller.validarAntesDePagar(deporte);
+    if (!mounted) return;
+    if (errorPrevio != null) {
+      aviso.value = _Aviso(errorPrevio, exito: false);
+      return;
+    }
+
+    final montoTexto = deporte.precio.toStringAsFixed(2);
+
+    // 2. Confirmar el monto antes de ir a la pasarela.
     final confirmar = await showDialog<bool>(
       context: contextoHoja,
       builder: (contextoDialogo) => AlertDialog(
         key: const Key('dialogo-inscripcion'),
-        title: const Text('Confirmar Inscripción'),
-        content: Text('¿Deseas inscribirte en ${deporte.nombre}?'),
+        title: const Text('Inscripción y Pago'),
+        content: Text(
+          'Para inscribirte en ${deporte.nombre} debes completar el pago de '
+          '\$$montoTexto ${PaypalConfig.moneda} mediante PayPal.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contextoDialogo).pop(false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
+          FilledButton.icon(
             key: const Key('confirmar-inscripcion'),
             onPressed: () => Navigator.of(contextoDialogo).pop(true),
-            child: const Text('Inscribirme'),
+            icon: const Icon(Icons.payment, size: 18),
+            label: const Text('Pagar con PayPal'),
           ),
         ],
       ),
@@ -587,13 +612,82 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
     if (confirmar != true || !mounted) return;
 
-    aviso.value = null;
-    final error = await _controller.inscribirse(deporte);
-    if (!mounted) return;
+    // 3. Abrir pasarela de PayPal Sandbox.
+    await Navigator.of(contextoHoja).push(
+      MaterialPageRoute<void>(
+        builder: (contextoPaypal) => PaypalCheckoutView(
+          sandboxMode: PaypalConfig.sandboxMode,
+          clientId: PaypalConfig.clientId,
+          secretKey: PaypalConfig.secretKey,
+          transactions: [
+            {
+              'amount': {
+                'total': montoTexto,
+                'currency': PaypalConfig.moneda,
+                'details': {
+                  'subtotal': montoTexto,
+                  'shipping': '0',
+                  'shipping_discount': 0,
+                },
+              },
+              'description': 'Inscripción deportiva: ${deporte.nombre}',
+              'item_list': {
+                'items': [
+                  {
+                    'name': deporte.nombre,
+                    'quantity': 1,
+                    'price': montoTexto,
+                    'currency': PaypalConfig.moneda,
+                  },
+                ],
+              },
+            },
+          ],
+          note: 'UNIMET Sports - Inscripción en ${deporte.nombre}',
+          onSuccess: (Map params) async {
+            Navigator.of(contextoPaypal).pop();
 
-    aviso.value = error == null
-        ? _Aviso('¡Quedaste inscrito en ${deporte.nombre}!', exito: true)
-        : _Aviso(error, exito: false);
+            // Extraer ID de orden y correo pagador de forma segura.
+            final data = params['data'] is Map ? params['data'] as Map : const {};
+            final orderId = (data['id'] ?? 'SANDBOX-${DateTime.now().millisecondsSinceEpoch}').toString();
+            final payer = data['payer'] is Map ? data['payer'] as Map : const {};
+            final payerInfo = payer['payer_info'] is Map ? payer['payer_info'] as Map : const {};
+            final payerEmail = payerInfo['email']?.toString();
+
+            final error = await _controller.inscribirse(
+              deporte,
+              paypalOrderId: orderId,
+              montoPagado: deporte.precio,
+              paypalPayerEmail: payerEmail,
+            );
+            if (!mounted) return;
+
+            aviso.value = error == null
+                ? _Aviso(
+                    '¡Pago aprobado y quedaste inscrito en ${deporte.nombre}!',
+                    exito: true,
+                  )
+                : _Aviso(error, exito: false);
+          },
+          onError: (error) {
+            Navigator.of(contextoPaypal).pop();
+            if (!mounted) return;
+            aviso.value = const _Aviso(
+              'Ocurrió un error al procesar el pago en PayPal. No se realizó la inscripción.',
+              exito: false,
+            );
+          },
+          onCancel: () {
+            Navigator.of(contextoPaypal).pop();
+            if (!mounted) return;
+            aviso.value = const _Aviso(
+              'Pago cancelado. Tu inscripción no fue procesada.',
+              exito: false,
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _cancelarInscripcion(
