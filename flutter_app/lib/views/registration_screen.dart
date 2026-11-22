@@ -304,6 +304,7 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                             hint: 'nombre@correo.unimet.edu.ve',
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.email],
                             validator: AppValidators.validateEmailEstudiante,
                           ),
                           const SizedBox(height: 16),
@@ -331,6 +332,9 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                             hint: 'Mínimo 8 caracteres, una mayúscula y un número',
                             controller: _passwordController,
                             obscureText: !_mostrarClave,
+                            // "Contraseña nueva": el navegador no rellena aquí
+                            // la contraseña guardada del login.
+                            autofillHints: const [AutofillHints.newPassword],
                             validator: AppValidators.validatePassword,
                             suffix: IconButton(
                               tooltip: _mostrarClave
@@ -352,6 +356,7 @@ class _RegistrationContentState extends State<_RegistrationContent> {
                             label: 'Confirmar contraseña',
                             controller: _confirmacionController,
                             obscureText: !_mostrarClave,
+                            autofillHints: const [AutofillHints.newPassword],
                             validator: (valor) =>
                                 AppValidators.validateConfirmacion(
                                   valor,
@@ -446,6 +451,7 @@ class _RegistrationField extends StatelessWidget {
     this.capitalization = TextCapitalization.none,
     this.maxLength,
     this.suffix,
+    this.autofillHints,
   });
 
   final String label;
@@ -458,6 +464,7 @@ class _RegistrationField extends StatelessWidget {
   final TextCapitalization capitalization;
   final int? maxLength;
   final Widget? suffix;
+  final Iterable<String>? autofillHints;
 
   @override
   Widget build(BuildContext context) {
@@ -474,6 +481,7 @@ class _RegistrationField extends StatelessWidget {
           validator: validator,
           textCapitalization: capitalization,
           maxLength: maxLength,
+          autofillHints: autofillHints,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           decoration: InputDecoration(
             border: const OutlineInputBorder(),

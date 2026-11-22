@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../navigation/app_routes.dart';
 import '../services/auth_service.dart';
@@ -15,6 +16,23 @@ import 'widgets/boton_volver_inicio.dart';
 /// se eligió, no entra. "Iniciar sesión como Administrador" cambia al acceso
 /// del panel admin. "Crear cuenta" abre el registro de estudiantes; las
 /// cuentas de entrenador las crea el administrador.
+///
+/// Manejo de las credenciales:
+/// - Cada opción (Estudiante, Entrenador, Administrador) empieza con el
+///   formulario vacío: al cambiar de opción se borran el correo/carnet y la
+///   contraseña, así nunca se envían los datos escritos para otro rol.
+/// - El rol que se envía es el que está seleccionado al tocar el botón, y no
+///   se puede cambiar mientras se valida la sesión.
+/// - Al ir a otra pantalla (registro, recuperar contraseña) se borran las
+///   credenciales, y el autocompletado del navegador se cierra para que no
+///   las lleve a los campos de otras vistas.
+
+/// Firma de [AuthService.iniciarSesion]. Las pruebas pasan otra.
+typedef IniciarSesion = Future<SesionUsuario> Function({
+  required String identificador,
+  required String password,
+  String? rolEsperado,
+});
 
 // NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
 const _orange = Color(0xFFF58220);
@@ -25,7 +43,10 @@ const _buttonBrown = Color(0xFF514943);
 enum UserRole { estudiante, entrenador, admin }
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.iniciarSesion});
+
+  /// Valida las credenciales. Por defecto, [AuthService.iniciarSesion].
+  final IniciarSesion? iniciarSesion;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +68,7 @@ class LoginScreen extends StatelessWidget {
                             constraints: BoxConstraints(
                               minHeight: panelConstraints.maxHeight,
                             ),
-                            child: const _LoginContent(),
+                            child: _LoginContent(iniciarSesion: iniciarSesion),
                           ),
                         );
                       },
@@ -65,7 +86,7 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 320, child: _SportsHero()),
-                  const _LoginContent(),
+                  _LoginContent(iniciarSesion: iniciarSesion),
                 ],
               ),
             ),
@@ -136,7 +157,9 @@ class _SportsHero extends StatelessWidget {
 }
 
 class _LoginContent extends StatelessWidget {
-  const _LoginContent();
+  const _LoginContent({this.iniciarSesion});
+
+  final IniciarSesion? iniciarSesion;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +233,7 @@ class _LoginContent extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    child: const _LoginForm(),
+                    child: _LoginForm(iniciarSesion: iniciarSesion),
                   ),
                 ),
               ],
@@ -223,7 +246,9 @@ class _LoginContent extends StatelessWidget {
 }
 
 class _LoginForm extends StatefulWidget {
-  const _LoginForm();
+  const _LoginForm({this.iniciarSesion});
+
+  final IniciarSesion? iniciarSesion;
 
   @override
   State<_LoginForm> createState() => _LoginFormState();
@@ -232,12 +257,45 @@ class _LoginForm extends StatefulWidget {
 class _LoginFormState extends State<_LoginForm> {
   final _formKey = GlobalKey<FormState>();
   UserRole _selectedRole = UserRole.estudiante;
+
+  /// Última opción elegida entre Estudiante y Entrenador: al salir del modo
+  /// administrador se vuelve a ella.
+  UserRole _rolNormal = UserRole.estudiante;
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _mostrarClave = false;
 
+  /// Si el login era la pantalla visible en el último cuadro.
+  bool _eraPantallaActual = true;
+
   bool get _modoAdmin => _selectedRole == UserRole.admin;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Cuando otra pantalla (registro, recuperar contraseña) tapa al login,
+    // se borran las credenciales: al volver, el formulario está vacío.
+    final esActual = ModalRoute.of(context)?.isCurrent ?? true;
+    if (_eraPantallaActual && !esActual) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _limpiarCredenciales();
+      });
+    }
+    _eraPantallaActual = esActual;
+  }
+
+  /// Deja el formulario vacío: sin correo/carnet, sin contraseña, sin
+  /// errores de validación y sin foco. También cierra el autocompletado del
+  /// navegador sin guardar nada.
+  void _limpiarCredenciales() {
+    _identifierController.clear();
+    _passwordController.clear();
+    _formKey.currentState?.reset();
+    FocusManager.instance.primaryFocus?.unfocus();
+    TextInput.finishAutofillContext(shouldSave: false);
+    if (_mostrarClave) setState(() => _mostrarClave = false);
+  }
 
   @override
   void dispose() {
@@ -257,25 +315,50 @@ class _LoginFormState extends State<_LoginForm> {
     }
   }
 
+  /// Cambia de opción (Estudiante, Entrenador o Administrador). Cada opción
+  /// empieza con el formulario vacío.
   void _cambiarRol(UserRole rol) {
-    setState(() => _selectedRole = rol);
+    if (_isLoading || rol == _selectedRole) return;
+    setState(() {
+      _selectedRole = rol;
+      if (rol != UserRole.admin) _rolNormal = rol;
+    });
+    _limpiarCredenciales();
+  }
+
+  static String _nombreRol(UserRole rol) {
+    switch (rol) {
+      case UserRole.admin:
+        return 'Administrador';
+      case UserRole.entrenador:
+        return 'Entrenador';
+      case UserRole.estudiante:
+        return 'Estudiante';
+    }
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isLoading || !_formKey.currentState!.validate()) return;
+    // Se toman los datos y el rol de este momento: es lo que se envía, aunque
+    // la pantalla cambie mientras se espera la respuesta.
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
+    final rolEsperado = _rolEsperado;
 
     setState(() => _isLoading = true);
 
     try {
-      final sesion = await AuthService.instance.iniciarSesion(
+      final iniciarSesion =
+          widget.iniciarSesion ?? AuthService.instance.iniciarSesion;
+      final sesion = await iniciarSesion(
         identificador: identifier,
         password: password,
-        rolEsperado: _rolEsperado,
+        rolEsperado: rolEsperado,
       );
 
       if (!mounted) return;
+      // El navegador puede ofrecer guardar estas credenciales.
+      TextInput.finishAutofillContext();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -308,11 +391,13 @@ class _LoginFormState extends State<_LoginForm> {
       }
 
       if (!mounted) return;
+      _passwordController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(backgroundColor: Colors.red, content: Text(message)),
       );
     } catch (e) {
       if (!mounted) return;
+      _passwordController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.red,
@@ -336,7 +421,11 @@ class _LoginFormState extends State<_LoginForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
+    // AutofillGroup: el correo y la contraseña forman un solo grupo para el
+    // autocompletado del navegador, y se cancela al salir de la pantalla.
+    return AutofillGroup(
+      onDisposeAction: AutofillContextAction.cancel,
+      child: Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -374,7 +463,9 @@ class _LoginFormState extends State<_LoginForm> {
                     label: 'Estudiante',
                     backgroundColor: _orange,
                     isSelected: _selectedRole == UserRole.estudiante,
-                    onTap: () => _cambiarRol(UserRole.estudiante),
+                    onTap: _isLoading
+                        ? null
+                        : () => _cambiarRol(UserRole.estudiante),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -383,7 +474,9 @@ class _LoginFormState extends State<_LoginForm> {
                     label: 'Entrenador',
                     backgroundColor: _navy,
                     isSelected: _selectedRole == UserRole.entrenador,
-                    onTap: () => _cambiarRol(UserRole.entrenador),
+                    onTap: _isLoading
+                        ? null
+                        : () => _cambiarRol(UserRole.entrenador),
                   ),
                 ),
               ],
@@ -499,10 +592,14 @@ class _LoginFormState extends State<_LoginForm> {
                     ),
                   )
                 : Text(
-                    _modoAdmin ? 'Entrar al panel' : 'Iniciar Sesión',
+                    _modoAdmin
+                        ? 'Entrar al panel'
+                        : 'Iniciar sesión como ${_nombreRol(_selectedRole)}',
+                    key: const Key('texto-boton-iniciar-sesion'),
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -545,9 +642,7 @@ class _LoginFormState extends State<_LoginForm> {
             key: const Key('boton-modo-admin'),
             onPressed: _isLoading
                 ? null
-                : () => _cambiarRol(
-                      _modoAdmin ? UserRole.estudiante : UserRole.admin,
-                    ),
+                : () => _cambiarRol(_modoAdmin ? _rolNormal : UserRole.admin),
             style: TextButton.styleFrom(foregroundColor: _navy),
             icon: Icon(
               _modoAdmin ? Icons.arrow_back : Icons.admin_panel_settings_outlined,
@@ -560,6 +655,7 @@ class _LoginFormState extends State<_LoginForm> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -576,7 +672,8 @@ class _RoleOption extends StatelessWidget {
   final String label;
   final Color backgroundColor;
   final bool isSelected;
-  final VoidCallback onTap;
+  /// `null` mientras se valida la sesión: no se puede cambiar de rol.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
