@@ -1,9 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/deporte.dart';
 import '../models/inscripcion.dart';
 import 'firestore_service.dart';
+
+class InscripcionException implements Exception {
+  const InscripcionException(this.mensaje);
+
+  final String mensaje;
+
+  @override
+  String toString() => mensaje;
+}
 
 abstract class InscripcionesDataSource {
   Future<Set<String>> deportesInscritos(String estudianteId);
