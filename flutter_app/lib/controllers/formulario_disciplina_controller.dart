@@ -9,6 +9,8 @@ import '../services/gestion_entrenadores_service.dart';
 import '../utils/app_validators.dart';
 import '../utils/choques_horario.dart';
 import '../utils/horarios.dart';
+import '../models/cancha.dart';
+import '../services/canchas_service.dart';
 
 /// Controlador (la "C" de MVC) del formulario para crear o editar una
 /// disciplina.
@@ -21,12 +23,20 @@ import '../utils/horarios.dart';
 class FormularioDisciplinaController extends ChangeNotifier {
   FormularioDisciplinaController({
     required GestionEntrenadoresDataSource datos,
+    CanchasDataSource? canchasDatos,
     this.original,
   }) : _datos = datos,
+       _canchasDatos = canchasDatos ?? CanchasService(),
        _horarios = [...?original?.horarios],
        _seleccionados = [...?original?.entrenadoresIds];
 
   final GestionEntrenadoresDataSource _datos;
+  final CanchasDataSource _canchasDatos;
+  StreamSubscription<List<Cancha>>? _suscripcionCanchas;
+  List<Cancha> _canchas = const [];
+
+  List<Cancha> get canchasActivas =>
+      _canchas.where((c) => c.activa).toList(growable: false);
 
   /// Disciplina que se edita, o `null` si se está creando una nueva.
   final Deporte? original;
@@ -81,6 +91,10 @@ class FormularioDisciplinaController extends ChangeNotifier {
     );
     _suscripcionDeportes = _datos.deportes().listen((lista) {
       _deportes = lista;
+      notifyListeners();
+    }, onError: (Object _) {});
+    _suscripcionCanchas = _canchasDatos.canchas().listen((lista) {
+      _canchas = lista;
       notifyListeners();
     }, onError: (Object _) {});
   }
@@ -224,6 +238,7 @@ class FormularioDisciplinaController extends ChangeNotifier {
     _liberado = true;
     _suscripcionEntrenadores?.cancel();
     _suscripcionDeportes?.cancel();
+    _suscripcionCanchas?.cancel();
     super.dispose();
   }
 }
