@@ -179,8 +179,9 @@ void main() {
       expect(find.byKey(const Key('dialogo-inscripcion')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ya pagué, verificar'));
       await tester.pumpAndSettle();
 
       expect(inscripciones.llamadas, 1);
@@ -251,8 +252,9 @@ void main() {
       await tester.tap(find.byKey(const Key('boton-inscribirme')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ya pagué, verificar'));
       await tester.pumpAndSettle();
 
       expect(find.text('Ese deporte ya no tiene cupos.'), findsOneWidget);
