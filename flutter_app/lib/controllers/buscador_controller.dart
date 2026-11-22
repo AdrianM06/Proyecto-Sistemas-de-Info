@@ -343,3 +343,63 @@ class BuscadorController extends ChangeNotifier {
     _resultados = filtrados;
   }
 }
+
+Future<String?> validarAntesDePagar(Deporte deporte) async {
+    final inscripciones = _inscripciones;
+    final estudianteId = _estudianteId;
+    if (inscripciones == null || estudianteId == null) {
+      return 'Inicia sesión como estudiante para inscribirte.';
+    }
+    if (_inscribiendo != null) return 'Hay otra inscripción en proceso.';
+    if (estaInscrito(deporte)) return 'Ya estás inscrito en ${deporte.nombre}.';
+
+    try {
+      await inscripciones.validarElegibilidad(
+        estudianteId: estudianteId,
+        deporte: deporte,
+      );
+      return null;
+    } on InscripcionException catch (e) {
+      return e.mensaje;
+    } catch (_) {
+      return 'No se pudo verificar la disponibilidad. Intenta de nuevo.';
+    }
+  }
+
+  Future<String?> inscribirse(
+    Deporte deporte, {
+    String? paypalOrderId,
+    double? montoPagado,
+    String? paypalPayerEmail,
+  }) async {
+    final inscripciones = _inscripciones;
+    final estudianteId = _estudianteId;
+    if (inscripciones == null || estudianteId == null) {
+      return 'Inicia sesión como estudiante para inscribirte.';
+    }
+    if (_inscribiendo != null) return null;
+    if (estaInscrito(deporte)) return 'Ya estás inscrito en ${deporte.nombre}.';
+
+    _inscribiendo = deporte.id;
+    notifyListeners();
+    try {
+      await inscripciones.inscribir(
+        estudianteId: estudianteId,
+        deporte: deporte,
+        paypalOrderId: paypalOrderId,
+        montoPagado: montoPagado,
+        paypalPayerEmail: paypalPayerEmail,
+      );
+      _misDeportes = {..._misDeportes, deporte.id};
+      _inscritos = {..._inscritos, deporte.id: inscritosDe(deporte) + 1};
+      _filtrar();
+      return null;
+    } on InscripcionException catch (e) {
+      return e.mensaje;
+    } catch (e) {
+      return 'No se pudo completar la inscripción.';
+    } finally {
+      _inscribiendo = null;
+      notifyListeners();
+    }
+  }
