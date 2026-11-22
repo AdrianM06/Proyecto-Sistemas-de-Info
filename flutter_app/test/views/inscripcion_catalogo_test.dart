@@ -50,7 +50,7 @@ class _Inscripciones implements InscripcionesDataSource {
   }
 }
 
-class _PaypalFalso implements PaypalService {
+class _PaypalFalso extends PaypalService {
   @override
   Future<PaypalOrdenCreada> crearOrden({
     required double monto,
