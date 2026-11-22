@@ -570,7 +570,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
-  Future<void> _inscribirme(
+ Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
     ValueNotifier<_Aviso?> aviso,
@@ -687,7 +687,6 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
           )
         : _Aviso(error, exito: false);
   }
-
   Future<void> _cancelarInscripcion(
     BuildContext contextoHoja,
     Deporte deporte,
