@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/deporte.dart';
 import '../models/inscripcion.dart';
@@ -17,9 +16,17 @@ class InscripcionException implements Exception {
 abstract class InscripcionesDataSource {
   Future<Set<String>> deportesInscritos(String estudianteId);
 
+  Future<void> validarElegibilidad({
+    required String estudianteId,
+    required Deporte deporte,
+  });
+
   Future<void> inscribir({
     required String estudianteId,
     required Deporte deporte,
+    String? paypalOrderId,
+    double? montoPagado,
+    String? paypalPayerEmail,
   });
 
   Future<void> cancelar({
@@ -48,7 +55,7 @@ class InscripcionService implements InscripcionesDataSource {
   }
 
   @override
-  Future<void> inscribir({
+  Future<void> validarElegibilidad({
     required String estudianteId,
     required Deporte deporte,
   }) async {
@@ -85,11 +92,43 @@ class InscripcionService implements InscripcionesDataSource {
           '(${inscripcionesActivas.length}/${deporte.cupos}).',
         );
       }
+    } on InscripcionException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw InscripcionException(
+        e.code == 'permission-denied'
+            ? 'No tienes permisos para inscribirte. Vuelve a iniciar sesión.'
+            : 'Error de conexión con la base de datos (${e.code}).',
+      );
+    } catch (_) {
+      throw const InscripcionException(
+        'No se pudo validar tu elegibilidad. Intenta nuevamente.',
+      );
+    }
+  }
+
+  @override
+  Future<void> inscribir({
+    required String estudianteId,
+    required Deporte deporte,
+    String? paypalOrderId,
+    double? montoPagado,
+    String? paypalPayerEmail,
+  }) async {
+    try {
+      await validarElegibilidad(
+        estudianteId: estudianteId,
+        deporte: deporte,
+      );
+
       await _firestore.enrollments.add({
         'estudianteId': estudianteId,
         'deporteId': deporte.id,
         'estado': EstadoInscripcion.activa.name,
         'fechaInscripcion': FieldValue.serverTimestamp(),
+        if (paypalOrderId != null) 'paypalOrderId': paypalOrderId,
+        if (montoPagado != null) 'montoPagado': montoPagado,
+        if (paypalPayerEmail != null) 'paypalPayerEmail': paypalPayerEmail,
       });
     } on InscripcionException {
       rethrow;

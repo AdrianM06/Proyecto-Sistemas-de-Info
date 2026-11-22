@@ -8,6 +8,7 @@ import '../../utils/formato_moneda.dart';
 import '../widgets/avatar_usuario.dart';
 import 'editar_datos_estudiante_dialog.dart';
 import 'estudiante_scaffold.dart';
+import 'pagos_estudiante_view.dart';
 
 // Colores del diseño "Perfil Estudiante".
 const _azul = Color(0xFF003087);
@@ -19,7 +20,7 @@ const _grisTexto = Color(0xFF6B6B78);
 ///
 /// Usa la misma barra y el mismo menú hamburguesa que el Inicio
 /// ([EstudianteScaffold]) y muestra tres tarjetas blancas: "Perfil" (foto,
-/// datos, Editar datos y Cambiar clave), "Saldo en cuenta" (Bs. 00,00) y
+/// datos, Editar datos y Cambiar clave), "Saldo en cuenta" y
 /// "Retirar disciplina".
 class PerfilEstudianteView extends StatefulWidget {
   const PerfilEstudianteView({
@@ -28,6 +29,7 @@ class PerfilEstudianteView extends StatefulWidget {
     this.onCerrarSesion,
     this.onIrAInicio,
     this.onIrACatalogo,
+    this.onIrAPagos,
     this.onIrALanding,
   });
 
@@ -37,6 +39,7 @@ class PerfilEstudianteView extends StatefulWidget {
     VoidCallback? onCerrarSesion,
     VoidCallback? onIrAInicio,
     VoidCallback? onIrACatalogo,
+    VoidCallback? onIrAPagos,
     VoidCallback? onIrALanding,
   }) {
     return PerfilEstudianteView(
@@ -45,6 +48,7 @@ class PerfilEstudianteView extends StatefulWidget {
       onCerrarSesion: onCerrarSesion,
       onIrAInicio: onIrAInicio,
       onIrACatalogo: onIrACatalogo,
+      onIrAPagos: onIrAPagos,
       onIrALanding: onIrALanding,
     );
   }
@@ -54,6 +58,7 @@ class PerfilEstudianteView extends StatefulWidget {
   final VoidCallback? onCerrarSesion;
   final VoidCallback? onIrAInicio;
   final VoidCallback? onIrACatalogo;
+  final VoidCallback? onIrAPagos;
   final VoidCallback? onIrALanding;
 
   @override
@@ -78,6 +83,41 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
   void _avisar(String texto, {Color? color}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(backgroundColor: color, content: Text(texto)),
+    );
+  }
+
+  void _abrirPagos() {
+    if (widget.onIrAPagos != null) {
+      widget.onIrAPagos!();
+      return;
+    }
+    final usuario = _controller.perfil?.usuario;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (contextoPagos) => PagosEstudianteView.conFirestore(
+          avatar: AvatarUsuario(
+            fotoUrl: usuario?.fotoUrl,
+            iniciales: usuario?.iniciales ?? '',
+          ),
+          onInicio: () {
+            Navigator.of(contextoPagos).pop();
+            if (widget.onIrAInicio != null) {
+              widget.onIrAInicio!();
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          },
+          onCatalogo: widget.onIrACatalogo == null
+              ? null
+              : () {
+                  Navigator.of(contextoPagos).pop();
+                  widget.onIrACatalogo!();
+                },
+          onPerfil: () => Navigator.of(contextoPagos).pop(),
+          onPaginaPrincipal: widget.onIrALanding,
+          onCerrarSesion: widget.onCerrarSesion,
+        ),
+      ),
     );
   }
 
@@ -225,10 +265,7 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
           onInicio: widget.onIrAInicio ?? () => Navigator.of(context).maybePop(),
           onCatalogo: widget.onIrACatalogo ??
               () => _avisar('El catálogo estará disponible pronto.'),
-          onPagos: () => _avisar(
-            'Tu saldo está en "Saldo en cuenta". Los pagos en línea '
-            'estarán disponibles pronto.',
-          ),
+          onPagos: _abrirPagos,
           onPaginaPrincipal: widget.onIrALanding,
           onCerrarSesion: widget.onCerrarSesion,
           body: _contenido(),
@@ -445,6 +482,13 @@ class _PerfilEstudianteViewState extends State<PerfilEstudianteView> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 14),
+        _AccionConDescripcion(
+          botonKey: const Key('boton-ver-pagos'),
+          textoBoton: 'Ver pagos',
+          descripcion: 'Consulta tus comprobantes y pagos realizados con PayPal',
+          onPressed: _abrirPagos,
         ),
       ],
     );

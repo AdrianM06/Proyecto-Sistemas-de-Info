@@ -5,6 +5,7 @@ import '../services/inicio_estudiante_service.dart';
 import 'entrenador/formato.dart';
 import 'estudiante/calendario_entrenamientos.dart';
 import 'estudiante/estudiante_scaffold.dart';
+import 'estudiante/pagos_estudiante_view.dart';
 import 'theme/saman_colors.dart';
 
 /// Inicio del estudiante (ruta `/estudiante`).
@@ -23,6 +24,7 @@ class StudentView extends StatefulWidget {
     this.onCerrarSesion,
     this.onAbrirPerfil,
     this.onIrACatalogo,
+    this.onIrAPagos,
     this.onIrALanding,
     this.avatar,
   });
@@ -34,6 +36,7 @@ class StudentView extends StatefulWidget {
     VoidCallback? onCerrarSesion,
     VoidCallback? onAbrirPerfil,
     VoidCallback? onIrACatalogo,
+    VoidCallback? onIrAPagos,
     VoidCallback? onIrALanding,
     Widget? avatar,
   }) {
@@ -46,6 +49,7 @@ class StudentView extends StatefulWidget {
       onCerrarSesion: onCerrarSesion,
       onAbrirPerfil: onAbrirPerfil,
       onIrACatalogo: onIrACatalogo,
+      onIrAPagos: onIrAPagos,
       onIrALanding: onIrALanding,
       avatar: avatar,
     );
@@ -62,6 +66,9 @@ class StudentView extends StatefulWidget {
 
   /// "Catálogo" del menú: abre el buscador de deportes.
   final VoidCallback? onIrACatalogo;
+
+  /// "Pagos" del menú: abre el historial de pagos en PayPal.
+  final VoidCallback? onIrAPagos;
 
   /// "Página principal" del menú: vuelve a la Landing Page.
   final VoidCallback? onIrALanding;
@@ -88,14 +95,43 @@ class _StudentViewState extends State<StudentView> {
     super.dispose();
   }
 
+  void _abrirPagos() {
+    if (widget.onIrAPagos != null) {
+      widget.onIrAPagos!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (contextoPagos) => PagosEstudianteView.conFirestore(
+          estudianteId: _controller.estudianteId,
+          avatar: widget.avatar,
+          onInicio: () => Navigator.of(contextoPagos).pop(),
+          onCatalogo: widget.onIrACatalogo == null
+              ? null
+              : () {
+                  Navigator.of(contextoPagos).pop();
+                  widget.onIrACatalogo!();
+                },
+          onPerfil: widget.onAbrirPerfil == null
+              ? null
+              : () {
+                  Navigator.of(contextoPagos).pop();
+                  widget.onAbrirPerfil!();
+                },
+          onPaginaPrincipal: widget.onIrALanding,
+          onCerrarSesion: widget.onCerrarSesion,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return EstudianteScaffold(
       seccion: SeccionEstudiante.inicio,
       avatar: widget.avatar,
       onCatalogo: widget.onIrACatalogo,
-      // El saldo y los pagos se consultan en el perfil.
-      onPagos: widget.onAbrirPerfil,
+      onPagos: _abrirPagos,
       onPerfil: widget.onAbrirPerfil,
       onPaginaPrincipal: widget.onIrALanding,
       onCerrarSesion: widget.onCerrarSesion,

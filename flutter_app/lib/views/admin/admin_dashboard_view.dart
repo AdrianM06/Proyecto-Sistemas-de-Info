@@ -218,8 +218,8 @@ class AdminDashboardView extends StatelessWidget {
   }
 
   Widget _listaDeportes() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.instance.sports.snapshots(),
+   return StreamBuilder(
+      stream: FirestoreService.instance.sports.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(

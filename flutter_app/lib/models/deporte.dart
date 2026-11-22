@@ -23,6 +23,7 @@ class Deporte {
     required this.nombre,
     required this.disciplina,
     required this.cupos,
+    this.precio = 10.0,
     this.entrenadoresIds = const [],
     this.entrenadoresNombres = const {},
     this.horarios = const [],
@@ -35,6 +36,7 @@ class Deporte {
   final String nombre;
   final String disciplina;
   final int cupos;
+  final double precio;
 
   /// Uids de los entrenadores de la disciplina.
   final List<String> entrenadoresIds;
@@ -98,6 +100,7 @@ class Deporte {
       nombre: nombre,
       disciplina: disciplina,
       cupos: cupos,
+      precio: precio,
       entrenadoresIds: List.unmodifiable(ids),
       entrenadoresNombres: Map.unmodifiable(nombres ?? entrenadoresNombres),
       horarios: horarios,
@@ -107,16 +110,13 @@ class Deporte {
     );
   }
 
-  /// Patrón Factory Method: crea un [Deporte] a partir del mapa guardado en
-  /// Firestore. Acepta los horarios como textos ("Lun 4:00-6:00 pm") o como
-  /// mapas ({dia, horaInicio, horaFin}), y el entrenador viejo
-  /// (`entrenadorId`) o la lista nueva (`entrenadoresIds`).
   factory Deporte.fromJson(Map<String, dynamic> json, {required String id}) {
     return Deporte(
       id: id,
       nombre: textoDe(json['nombre'], porDefecto: 'Sin nombre'),
       disciplina: textoDe(json['disciplina']),
       cupos: enteroDe(json['cupos']),
+      precio: _leerPrecio(json['precio']),
       entrenadoresIds: leerEntrenadoresIds(json),
       entrenadoresNombres: _leerNombres(json['entrenadoresNombres']),
       horarios: _leerHorarios(json['horarios']),
@@ -139,6 +139,7 @@ class Deporte {
     'nombre': nombre,
     'disciplina': disciplina,
     'cupos': cupos,
+    'precio': precio,
     'entrenadoresIds': entrenadoresIds,
     'entrenadoresNombres': entrenadoresNombres,
     'horarios': horarios,
@@ -146,6 +147,12 @@ class Deporte {
     'lugar': lugar,
     'etiquetas': etiquetas,
   };
+
+  static double _leerPrecio(dynamic valor) {
+    if (valor is num && valor > 0) return valor.toDouble();
+    final parsed = double.tryParse(textoDe(valor).trim());
+    return (parsed != null && parsed > 0) ? parsed : 10.0;
+  }
 
   /// Campos consultables que se derivan de los bloques:
   /// - `bloquesHorario`: `[{dia: 1, inicio: 960, fin: 1080}, ...]`, con las

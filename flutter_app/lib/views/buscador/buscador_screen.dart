@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/paypal_config.dart';
 import '../../controllers/buscador_controller.dart';
 import '../../models/bloque_horario.dart';
 import '../../models/deporte.dart';
 import '../../services/buscador_service.dart';
 import '../../services/inscripcion_service.dart';
+import '../../services/paypal_service.dart';
 import '../entrenador/widgets/entrenador_widgets.dart';
 import '../theme/saman_colors.dart';
 import 'detalle_deporte_view.dart';
@@ -17,6 +22,7 @@ class BuscadorScreen extends StatefulWidget {
     required this.controller,
     this.onSeleccionar,
     this.paginaDeResenas,
+    this.paypalService,
   });
 
   factory BuscadorScreen.conFirestore({
@@ -56,6 +62,7 @@ class BuscadorScreen extends StatefulWidget {
   /// Página que abre "Ver reseñas". Por defecto, [DetalleDeporteView]
   /// conectada a Firestore; las pruebas pasan otra.
   final Widget Function(Deporte deporte, String? estudianteId)? paginaDeResenas;
+  final PaypalService? paypalService;
 
   @override
   State<BuscadorScreen> createState() => _BuscadorScreenState();
@@ -146,7 +153,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     label: Text(
                       _controller.filtraPorHoras
                           ? '${BloqueHorario.horaTexto(_controller.desde!)} – '
-                                '${BloqueHorario.horaTexto(_controller.hasta!)}'
+                              '${BloqueHorario.horaTexto(_controller.hasta!)}'
                           : 'Horario',
                     ),
                     selected: _controller.filtraPorHoras,
@@ -232,7 +239,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                             return TarjetaDeporte(
                               key: Key('tarjeta-${deporte.id}'),
                               deporte: deporte,
-                              cuposDisponibles: _controller.cuposDisponiblesDe(deporte),
+                              cuposDisponibles:
+                                  _controller.cuposDisponiblesDe(deporte),
                               onTap: () => _mostrarDetalle(deporte),
                             );
                           },
@@ -269,7 +277,9 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
               children: [
                 Text(
                   '¿A qué hora puedes entrenar?',
-                  style: Theme.of(contextoHoja).textTheme.titleMedium
+                  style: Theme.of(contextoHoja)
+                      .textTheme
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
@@ -432,6 +442,14 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                       'Inscritos: ${_controller.inscritosDe(deporte)}',
                       style: const TextStyle(color: SamanColors.neutro500),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} ${PaypalConfig.moneda}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: SamanColors.azulNoche,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextButton.icon(
                       key: const Key('boton-ver-resenas'),
@@ -552,7 +570,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     );
   }
 
-  Future<void> _inscribirme(
+ Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
     ValueNotifier<_Aviso?> aviso,
@@ -563,21 +581,39 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
       return;
     }
 
+    aviso.value = null;
+
+    // 1. Verificar cupos y estado activo antes de crear la orden en PayPal.
+    final errorPrevio = await _controller.validarAntesDePagar(deporte);
+    if (!mounted) return;
+    if (errorPrevio != null) {
+      aviso.value = _Aviso(errorPrevio, exito: false);
+      return;
+    }
+
+    final montoTexto = deporte.precio.toStringAsFixed(2);
+
+    // 2. Confirmar el monto con el estudiante antes de ir a PayPal.
     final confirmar = await showDialog<bool>(
-      context: contextoHoja,
+      context: context,
       builder: (contextoDialogo) => AlertDialog(
         key: const Key('dialogo-inscripcion'),
-        title: const Text('Confirmar Inscripción'),
-        content: Text('¿Deseas inscribirte en ${deporte.nombre}?'),
+        title: const Text('Inscripción y Pago'),
+        content: Text(
+          'Para inscribirte en ${deporte.nombre} debes completar el pago de '
+          '\$$montoTexto ${PaypalConfig.moneda} mediante PayPal.\n\n'
+          'Se abrirá la ventana oficial de PayPal Sandbox para aprobar el pago.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contextoDialogo).pop(false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
+          FilledButton.icon(
             key: const Key('confirmar-inscripcion'),
             onPressed: () => Navigator.of(contextoDialogo).pop(true),
-            child: const Text('Inscribirme'),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('Ir a PayPal'),
           ),
         ],
       ),
@@ -585,15 +621,72 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
     if (confirmar != true || !mounted) return;
 
-    aviso.value = null;
-    final error = await _controller.inscribirse(deporte);
+    // 3. Crear la orden en PayPal Sandbox y abrir el enlace en Web o Móvil.
+    final paypal = widget.paypalService ?? PaypalService();
+    PaypalOrdenCreada orden;
+    try {
+      orden = await paypal.crearOrden(
+        monto: deporte.precio,
+        descripcion: 'Inscripción deportiva: ${deporte.nombre}',
+      );
+    } on PaypalException catch (e) {
+      if (!mounted) return;
+      aviso.value = _Aviso(e.mensaje, exito: false);
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      aviso.value = const _Aviso(
+        'Error de red al conectar con PayPal.',
+        exito: false,
+      );
+      return;
+    }
+
+    final uriPago = Uri.parse(orden.approveUrl);
+    if (widget.paypalService == null) {
+      try {
+        await launchUrl(uriPago, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+   
+    // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
+    final resultadoPago = await showDialog<PaypalResultadoPago?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _DialogoEsperandoPaypal(
+        paypal: paypal,
+        orderId: orden.orderId,
+        approveUri: uriPago,
+      ),
+    );
+
+    if (!mounted) return;
+    if (resultadoPago == null || !resultadoPago.completado) {
+      aviso.value = const _Aviso(
+        'Pago no completado. Tu inscripción no fue procesada.',
+        exito: false,
+      );
+      return;
+    }
+
+    // 5. Registrar la inscripción validada en Firestore.
+    final error = await _controller.inscribirse(
+      deporte,
+      paypalOrderId: resultadoPago.orderId,
+      montoPagado: deporte.precio,
+      paypalPayerEmail: resultadoPago.payerEmail,
+    );
     if (!mounted) return;
 
     aviso.value = error == null
-        ? _Aviso('¡Quedaste inscrito en ${deporte.nombre}!', exito: true)
+        ? _Aviso(
+            '¡Pago aprobado y quedaste inscrito en ${deporte.nombre}!',
+            exito: true,
+          )
         : _Aviso(error, exito: false);
   }
-
   Future<void> _cancelarInscripcion(
     BuildContext contextoHoja,
     Deporte deporte,
@@ -603,7 +696,9 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
       context: contextoHoja,
       builder: (contextoDialogo) => AlertDialog(
         title: const Text('Cancelar Inscripción'),
-        content: Text('¿Seguro que deseas retirarte de ${deporte.nombre}? Se liberará tu cupo.'),
+        content: Text(
+          '¿Seguro que deseas retirarte de ${deporte.nombre}? Se liberará tu cupo.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contextoDialogo).pop(false),
@@ -671,6 +766,134 @@ class _Subtitulo extends StatelessWidget {
           color: SamanColors.azulNoche,
         ),
       ),
+    );
+  }
+}
+
+class _DialogoEsperandoPaypal extends StatefulWidget {
+  const _DialogoEsperandoPaypal({
+    required this.paypal,
+    required this.orderId,
+    required this.approveUri,
+  });
+
+  final PaypalService paypal;
+  final String orderId;
+  final Uri approveUri;
+
+  @override
+  State<_DialogoEsperandoPaypal> createState() =>
+      _DialogoEsperandoPaypalState();
+}
+
+class _DialogoEsperandoPaypalState extends State<_DialogoEsperandoPaypal> {
+  Timer? _temporizador;
+  bool _verificando = false;
+  String? _mensajeEstado;
+
+  @override
+  void initState() {
+    super.initState();
+    _temporizador = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _verificar(silencioso: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _temporizador?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _verificar({bool silencioso = false}) async {
+    if (_verificando) return;
+    setState(() {
+      _verificando = true;
+      if (!silencioso) _mensajeEstado = 'Verificando con PayPal...';
+    });
+
+    try {
+      final resultado = await widget.paypal.capturarSiAprobada(widget.orderId);
+      if (!mounted) return;
+      if (resultado.completado) {
+        _temporizador?.cancel();
+        Navigator.of(context).pop(resultado);
+        return;
+      }
+      if (!silencioso) {
+        setState(() {
+          _mensajeEstado =
+              'Aún no aparece aprobado. Completa el pago en la ventana de PayPal.';
+        });
+      }
+    } on PaypalException catch (e) {
+      if (!mounted) return;
+      setState(() => _mensajeEstado = e.mensaje);
+    } catch (_) {
+      if (!mounted) return;
+      if (!silencioso) {
+        setState(
+          () => _mensajeEstado = 'No se pudo consultar PayPal. Reintenta.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _verificando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Completando pago en PayPal'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '1. Inicia sesión con tu cuenta Sandbox en la ventana de PayPal.\n'
+              '2. Pulsa "Completar compra".\n'
+              '3. Vuelve aquí; detectaremos el pago automáticamente.',
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => launchUrl(
+                widget.approveUri,
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir enlace de PayPal nuevamente'),
+            ),
+            if (_mensajeEstado != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _mensajeEstado!,
+                style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _verificando ? null : () => _verificar(silencioso: false),
+          child: _verificando
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Ya pagué, verificar'),
+        ),
+      ],
     );
   }
 }

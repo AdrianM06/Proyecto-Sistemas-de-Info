@@ -3,13 +3,14 @@ import 'package:flutter_app/controllers/buscador_controller.dart';
 import 'package:flutter_app/models/deporte.dart';
 import 'package:flutter_app/services/buscador_demo_service.dart';
 import 'package:flutter_app/services/inscripcion_service.dart';
+import 'package:flutter_app/services/paypal_service.dart';
 import 'package:flutter_app/views/buscador/buscador_screen.dart';
 import 'package:flutter_app/views/theme/saman_colors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Inscripciones implements InscripcionesDataSource {
   _Inscripciones({Set<String> iniciales = const {}, this.fallo})
-    : _inscrito = {...iniciales};
+      : _inscrito = {...iniciales};
 
   final Set<String> _inscrito;
   final String? fallo;
@@ -17,13 +18,22 @@ class _Inscripciones implements InscripcionesDataSource {
 
   @override
   Future<Set<String>> deportesInscritos(String estudianteId) async => {
-    ..._inscrito,
-  };
+        ..._inscrito,
+      };
+
+  @override
+  Future<void> validarElegibilidad({
+    required String estudianteId,
+    required Deporte deporte,
+  }) async {}
 
   @override
   Future<void> inscribir({
     required String estudianteId,
     required Deporte deporte,
+    String? paypalOrderId,
+    double? montoPagado,
+    String? paypalPayerEmail,
   }) async {
     llamadas++;
     if (fallo != null) throw InscripcionException(fallo!);
@@ -40,14 +50,36 @@ class _Inscripciones implements InscripcionesDataSource {
   }
 }
 
+class _PaypalFalso extends PaypalService {
+  @override
+  Future<PaypalOrdenCreada> crearOrden({
+    required double monto,
+    required String descripcion,
+  }) async {
+    return const PaypalOrdenCreada(
+      orderId: 'ORDER-TEST-123',
+      approveUrl: 'https://example.com/paypal-test',
+    );
+  }
+
+  @override
+  Future<PaypalResultadoPago> capturarSiAprobada(String orderId) async {
+    return PaypalResultadoPago(
+      completado: true,
+      orderId: orderId,
+      payerEmail: 'estudiante@personal.example.com',
+    );
+  }
+}
+
 void main() {
   late _Inscripciones inscripciones;
 
   BuscadorController controlador() => BuscadorController(
-    datos: BuscadorDemoService(latencia: Duration.zero),
-    inscripciones: inscripciones,
-    estudianteId: 'est-01',
-  );
+        datos: BuscadorDemoService(latencia: Duration.zero),
+        inscripciones: inscripciones,
+        estudianteId: 'est-01',
+      );
 
   Future<void> abrirDetalle(WidgetTester tester, String deporteId) async {
     tester.view.physicalSize = const Size(1080, 2340);
@@ -57,11 +89,31 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: SamanColors.tema(),
-        home: BuscadorScreen(controller: controlador()),
+        home: BuscadorScreen(
+          controller: controlador(),
+          paypalService: _PaypalFalso(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('tarjeta-$deporteId')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> aprobarDialogoPaypal(WidgetTester tester) async {
+    final botonVerificar = find.text('Ya pagué, verificar');
+    if (botonVerificar.evaluate().isEmpty) {
+      final textosVisibles = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data)
+          .whereType<String>()
+          .toList();
+      fail(
+        'No se abrió el diálogo de espera de PayPal. '
+        'Textos visibles en pantalla: $textosVisibles',
+      );
+    }
+    await tester.tap(botonVerificar);
     await tester.pumpAndSettle();
   }
 
@@ -146,6 +198,8 @@ void main() {
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
       await tester.pumpAndSettle();
 
+      await aprobarDialogoPaypal(tester);
+
       expect(inscripciones.llamadas, 1);
       expect(find.byKey(const Key('boton-inscribirme')), findsNothing);
       expect(
@@ -215,6 +269,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirmar-inscripcion')));
       await tester.pumpAndSettle();
+
+      await aprobarDialogoPaypal(tester);
 
       expect(find.text('Ese deporte ya no tiene cupos.'), findsOneWidget);
       expect(textoDelBoton(tester), 'Inscribirme');
