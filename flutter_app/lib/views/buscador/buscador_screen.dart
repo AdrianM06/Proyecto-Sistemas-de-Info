@@ -643,14 +643,14 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     }
 
     final uriPago = Uri.parse(orden.approveUrl);
-    try {
-      await launchUrl(uriPago, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // En entornos de prueba sin navegador externo, continúa al diálogo.
+    if (widget.paypalService == null) {
+      try {
+        await launchUrl(uriPago, mode: LaunchMode.externalApplication);
+      } catch (_) {}
     }
 
     if (!mounted) return;
-
+   
     // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
     final resultadoPago = await showDialog<PaypalResultadoPago?>(
       context: context,
