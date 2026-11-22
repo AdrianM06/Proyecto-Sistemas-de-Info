@@ -1,3 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'conversores.dart';
+
+/// Estados de una inscripción según el documento del Hito 2.
+enum EstadoInscripcion { activa, retirada }
+
+/// Modelo de un documento de la colección `enrollments` de Cloud Firestore.
 class Inscripcion {
   const Inscripcion({
     required this.id,
