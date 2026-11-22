@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/gestion_canchas_controller.dart';
 import '../../models/cancha.dart';
+import '../theme/saman_colors.dart';
 
 const _azul = Color(0xFF003B82);
-const _naranja = Color(0xFFFF8C2A);
+const _naranja = Color(0xFFF58220);
 
 class GestionCanchasView extends StatefulWidget {
   const GestionCanchasView({super.key, this.controller});
@@ -62,6 +63,7 @@ class _GestionCanchasViewState extends State<GestionCanchasView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Gestión de Canchas'),
         backgroundColor: _azul,
@@ -73,7 +75,7 @@ class _GestionCanchasViewState extends State<GestionCanchasView> {
           return Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(maxWidth: 820),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -184,7 +186,7 @@ class _GestionCanchasViewState extends State<GestionCanchasView> {
           children: [
             Switch(
               value: cancha.activa,
-              activeThumbColor: _azul,
+              activeThumbColor: _naranja,
               onChanged: (valor) => _controller.cambiarEstado(cancha, valor),
             ),
             IconButton(

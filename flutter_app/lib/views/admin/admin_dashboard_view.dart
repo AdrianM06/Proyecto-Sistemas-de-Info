@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../services/gestion_entrenadores_service.dart';
 import '../../utils/choques_horario.dart';
 import '../../utils/horarios.dart';
+import '../theme/saman_colors.dart';
 import 'panel_resumen_admin.dart';
 import '../../navigation/app_routes.dart';
 
@@ -88,6 +89,7 @@ class AdminDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Panel de administración'),
         backgroundColor: _azul,
@@ -118,138 +120,105 @@ class AdminDashboardView extends StatelessWidget {
       ),
       // Toda la página se desplaza: así el resumen, los accesos y la lista
       // caben también en el teléfono.
-      body: ListView(
-        
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-            child: Text(
-              'Hola, $nombreAdmin',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: _azul,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1080),
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                child: Text(
+                  'Hola, $nombreAdmin',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _azul,
+                  ),
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: resumen ?? PanelResumenAdmin.conFirebase(),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
+                child: Text(
+                  'Accesos rápidos',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _AccionAdmin(
+                      key: const Key('admin-registrar-entrenador'),
+                      icono: Icons.person_add_alt_1,
+                      titulo: 'Registrar entrenador',
+                      onTap: onRegistrarEntrenador,
+                    ),
+                    _AccionAdmin(
+                      key: const Key('admin-gestionar-entrenadores'),
+                      icono: Icons.manage_accounts_outlined,
+                      titulo: 'Gestionar entrenadores',
+                      onTap: onGestionarEntrenadores,
+                    ),
+                    _AccionAdmin(
+                      key: const Key('admin-crear-deporte'),
+                      icono: Icons.add_circle_outline,
+                      titulo: 'Crear disciplina',
+                      onTap: onCrearDeporte,
+                    ),
+                    _AccionAdmin(
+                      key: const Key('admin-gestionar-disciplinas'),
+                      icono: Icons.edit_calendar_outlined,
+                      titulo: 'Gestionar disciplinas',
+                      onTap: onGestionarDisciplinas,
+                    ),
+                    _AccionAdmin(
+                      key: const Key('admin-gestionar-estudiantes'),
+                      icono: Icons.groups_outlined,
+                      titulo: 'Gestionar estudiantes',
+                      onTap: onGestionarEstudiantes,
+                    ),
+                    _AccionAdmin(
+                      key: const Key('tarjeta-gestion-eventos'),
+                      icono: Icons.emoji_events_outlined,
+                      titulo: 'Eventos y torneos',
+                      onTap: () => Navigator.of(context)
+                          .pushNamed(AppRoutes.gestionEventos),
+                    ),
+                    _AccionAdmin(
+                      key: const Key('tarjeta-gestion-canchas'),
+                      icono: Icons.stadium_outlined,
+                      titulo: 'Gestión de canchas',
+                      onTap: () => Navigator.of(context)
+                          .pushNamed(AppRoutes.gestionCanchas),
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  'Deportes y horarios',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              listaDeportes ?? _listaDeportes(),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: resumen ?? PanelResumenAdmin.conFirebase(),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
-            child: Text(
-              'Accesos rápidos',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _AccionAdmin(
-                  key: const Key('admin-registrar-entrenador'),
-                  icono: Icons.person_add_alt_1,
-                  titulo: 'Registrar entrenador',
-                  onTap: onRegistrarEntrenador,
-                ),
-                _AccionAdmin(
-                  key: const Key('admin-gestionar-entrenadores'),
-                  icono: Icons.manage_accounts_outlined,
-                  titulo: 'Gestionar entrenadores',
-                  onTap: onGestionarEntrenadores,
-                ),
-                _AccionAdmin(
-                  key: const Key('admin-crear-deporte'),
-                  icono: Icons.add_circle_outline,
-                  titulo: 'Crear disciplina',
-                  onTap: onCrearDeporte,
-                ),
-                _AccionAdmin(
-                  key: const Key('admin-gestionar-disciplinas'),
-                  icono: Icons.edit_calendar_outlined,
-                  titulo: 'Gestionar disciplinas',
-                  onTap: onGestionarDisciplinas,
-                ),
-                _AccionAdmin(
-                  key: const Key('admin-gestionar-estudiantes'),
-                  icono: Icons.groups_outlined,
-                  titulo: 'Gestionar estudiantes',
-                  onTap: onGestionarEstudiantes,
-                ),
-                _tarjetaAcceso(
-                  context,
-                  key: const Key('tarjeta-gestion-eventos'),
-                  titulo: 'Eventos y Torneos',
-                  icono: Icons.emoji_events_outlined,
-                  colorIcono: const Color(0xFFFF8C2A), // Naranja institucional[cite: 2]
-                  subtitulo: 'Programar torneos y asignar canchas',
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.gestionEventos),
-                ),
-                const SizedBox(height: 12),
-                _tarjetaAcceso(
-                  context,
-                  key: const Key('tarjeta-gestion-canchas'),
-                  titulo: 'Gestión de Canchas',
-                  icono: Icons.stadium_outlined,
-                  colorIcono: const Color(0xFF003B82), // Azul institucional[cite: 2]
-                  subtitulo: 'Administrar canchas disponibles',
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.gestionCanchas),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              'Deportes y horarios',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          listaDeportes ?? _listaDeportes(),
-        ],
+        ),
       ),
     );
   }
 
-Widget _tarjetaAcceso(
-  BuildContext context, {
-  Key? key,
-  required String titulo,
-  required String subtitulo,
-  required IconData icono,
-  required Color colorIcono,
-  required VoidCallback onTap,
-}) {
-  return Card(
-    key: key,
-    elevation: 1,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        backgroundColor: colorIcono.withValues(alpha: 0.12),
-        child: Icon(icono, color: colorIcono),
-      ),
-      title: Text(
-        titulo,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF003B82),
-        ),
-      ),
-      subtitle: Text(subtitulo),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
-    ),
-  );
-}
-  
   Widget _listaDeportes() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<QuerySnapshot>>(
         stream: FirestoreService.instance.sports.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

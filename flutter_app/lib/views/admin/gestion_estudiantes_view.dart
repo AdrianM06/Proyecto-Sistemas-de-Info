@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../controllers/gestion_estudiantes_controller.dart';
 import '../../models/usuario.dart';
 import '../../services/gestion_estudiantes_service.dart';
+import '../theme/saman_colors.dart';
 import '../widgets/avatar_usuario.dart';
 
 const _azul = Color(0xFF003B82);
-const _naranja = Color(0xFFFF8C2A);
+const _naranja = Color(0xFFF58220);
 
 /// Gestión de estudiantes del panel del administrador
 /// (ruta `/admin/estudiantes`, solo para el rol admin).
@@ -105,6 +106,7 @@ class _GestionEstudiantesViewState extends State<GestionEstudiantesView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Gestión de Estudiantes'),
         backgroundColor: _azul,
@@ -155,6 +157,8 @@ class _GestionEstudiantesViewState extends State<GestionEstudiantesView> {
             key: const Key('buscar-estudiante'),
             onChanged: _controller.buscar,
             decoration: const InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
               prefixIcon: Icon(Icons.search),
               hintText: 'Buscar por nombre, correo, carnet o cédula',
               border: OutlineInputBorder(),

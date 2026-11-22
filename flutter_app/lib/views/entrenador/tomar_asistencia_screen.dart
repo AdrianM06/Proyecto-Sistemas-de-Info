@@ -60,7 +60,10 @@ class TomarAsistenciaScreen extends StatelessWidget {
         final nomina = controller.nomina;
         final habilitada = controller.hayEntrenamientoEnFecha;
         return Scaffold(
+          backgroundColor: SamanColors.niebla,
           appBar: AppBar(
+            backgroundColor: SamanColors.azul,
+            foregroundColor: Colors.white,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -70,178 +73,202 @@ class TomarAsistenciaScreen extends StatelessWidget {
                     deporte.nombre,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: SamanColors.neutro500,
+                      color: SamanColors.azul100,
                     ),
                   ),
               ],
             ),
           ),
-          body: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event, color: SamanColors.azul),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        fechaLarga(controller.fechaAsistencia),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _elegirFecha(context),
-                      child: const Text('Cambiar fecha'),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(
-                  children: [
-                    _Contador(
-                      valor: controller.presentes,
-                      texto: 'Presentes',
-                      fondo: SamanColors.verde50,
-                      color: SamanColors.verde700,
-                    ),
-                    const SizedBox(width: 8),
-                    _Contador(
-                      valor: controller.ausentes,
-                      texto: 'Ausentes',
-                      fondo: SamanColors.errorFondo,
-                      color: SamanColors.error,
-                    ),
-                    const SizedBox(width: 8),
-                    _Contador(
-                      valor: controller.sinMarcar,
-                      texto: 'Sin marcar',
-                      fondo: SamanColors.azul50,
-                      color: SamanColors.neutro500,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${nomina.length} estudiantes',
-                        style: const TextStyle(
-                          color: SamanColors.neutro500,
-                          fontWeight: FontWeight.w600,
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.event, color: SamanColors.azul),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            fechaLarga(controller.fechaAsistencia),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: nomina.isEmpty || !habilitada
-                          ? null
-                          : () => controller.marcarTodos(presentes: true),
-                      child: const Text('Marcar todos presentes'),
-                    ),
-                  ],
-                ),
-              ),
-              if (controller.cargando) const LinearProgressIndicator(),
-              Expanded(
-                child: !habilitada
-                    ? MensajeVacio(
-                        key: const Key('sin-entrenamiento'),
-                        icono: Icons.event_busy,
-                        titulo: 'No hay entrenamiento pautado para este día',
-                        detalle: controller.horarioSinDias
-                            ? 'El horario de la disciplina no indica los días '
-                                'de entrenamiento. Pide al administrador que '
-                                'lo complete.'
-                            : 'Esta disciplina entrena: '
-                                '${deporte?.horariosTexto ?? ''}. '
-                                'Cambia la fecha a uno de esos días.',
-                        accion: OutlinedButton(
+                        TextButton(
                           onPressed: () => _elegirFecha(context),
                           child: const Text('Cambiar fecha'),
                         ),
-                      )
-                    : nomina.isEmpty
-                    ? const MensajeVacio(
-                        icono: Icons.groups_outlined,
-                        titulo: 'No hay estudiantes inscritos',
-                        detalle: 'Cuando haya inscripciones activas aparecerán aquí.',
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
-                        itemCount: nomina.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1, indent: 64),
-                        itemBuilder: (context, i) {
-                          final estudiante = nomina[i];
-                          final marca = controller.marcaDe(estudiante.uid);
-                          return ListTile(
-                            key: Key('fila-${estudiante.uid}'),
-                            leading: AvatarIniciales(usuario: estudiante, radio: 18),
-                            title: Text(
-                              estudiante.nombreCompleto,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Row(
+                      children: [
+                        _Contador(
+                          valor: controller.presentes,
+                          texto: 'Presentes',
+                          fondo: SamanColors.verde50,
+                          color: SamanColors.verde700,
+                        ),
+                        const SizedBox(width: 8),
+                        _Contador(
+                          valor: controller.ausentes,
+                          texto: 'Ausentes',
+                          fondo: SamanColors.errorFondo,
+                          color: SamanColors.error,
+                        ),
+                        const SizedBox(width: 8),
+                        _Contador(
+                          valor: controller.sinMarcar,
+                          texto: 'Sin marcar',
+                          fondo: SamanColors.azul50,
+                          color: SamanColors.neutro500,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${nomina.length} estudiantes',
+                            style: const TextStyle(
+                              color: SamanColors.neutro500,
+                              fontWeight: FontWeight.w600,
                             ),
-                            trailing: SegmentedButton<bool>(
-                              key: Key('marca-${estudiante.uid}'),
-                              showSelectedIcon: false,
-                              emptySelectionAllowed: true,
-                              segments: const [
-                                ButtonSegment(
-                                  value: true,
-                                  icon: Icon(Icons.check),
-                                  tooltip: 'Presente',
-                                ),
-                                ButtonSegment(
-                                  value: false,
-                                  icon: Icon(Icons.close),
-                                  tooltip: 'Ausente',
-                                ),
-                              ],
-                              selected: marca == null ? <bool>{} : {marca},
-                              onSelectionChanged: (seleccion) {
-                                if (seleccion.isEmpty) return;
-                                controller.marcar(
-                                  estudiante.uid,
-                                  presente: seleccion.first,
-                                );
-                              },
-                              style: SegmentedButton.styleFrom(
-                                selectedBackgroundColor: marca == false
-                                    ? SamanColors.error
-                                    : SamanColors.verde,
-                                selectedForegroundColor: Colors.white,
-                                visualDensity: VisualDensity.compact,
-                              ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: nomina.isEmpty || !habilitada
+                              ? null
+                              : () => controller.marcarTodos(presentes: true),
+                          child: const Text('Marcar todos presentes'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (controller.cargando) const LinearProgressIndicator(),
+                  Expanded(
+                    child: !habilitada
+                        ? MensajeVacio(
+                            key: const Key('sin-entrenamiento'),
+                            icono: Icons.event_busy,
+                            titulo: 'No hay entrenamiento pautado para este día',
+                            detalle: controller.horarioSinDias
+                                ? 'El horario de la disciplina no indica los días '
+                                    'de entrenamiento. Pide al administrador que '
+                                    'lo complete.'
+                                : 'Esta disciplina entrena: '
+                                    '${deporte?.horariosTexto ?? ''}. '
+                                    'Cambia la fecha a uno de esos días.',
+                            accion: OutlinedButton(
+                              onPressed: () => _elegirFecha(context),
+                              child: const Text('Cambiar fecha'),
                             ),
-                          );
-                        },
-                      ),
+                          )
+                        : nomina.isEmpty
+                        ? const MensajeVacio(
+                            icono: Icons.groups_outlined,
+                            titulo: 'No hay estudiantes inscritos',
+                            detalle: 'Cuando haya inscripciones activas aparecerán aquí.',
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            itemCount: nomina.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, i) {
+                              final estudiante = nomina[i];
+                              final marca = controller.marcaDe(estudiante.uid);
+                              return Card(
+                                child: ListTile(
+                                  key: Key('fila-${estudiante.uid}'),
+                                  leading: AvatarIniciales(usuario: estudiante, radio: 18),
+                                  title: Text(
+                                    estudiante.nombreCompleto,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  trailing: SegmentedButton<bool>(
+                                    key: Key('marca-${estudiante.uid}'),
+                                    showSelectedIcon: false,
+                                    emptySelectionAllowed: true,
+                                    segments: const [
+                                      ButtonSegment(
+                                        value: true,
+                                        icon: Icon(Icons.check),
+                                        tooltip: 'Presente',
+                                      ),
+                                      ButtonSegment(
+                                        value: false,
+                                        icon: Icon(Icons.close),
+                                        tooltip: 'Ausente',
+                                      ),
+                                    ],
+                                    selected: marca == null ? <bool>{} : {marca},
+                                    onSelectionChanged: (seleccion) {
+                                      if (seleccion.isEmpty) return;
+                                      controller.marcar(
+                                        estudiante.uid,
+                                        presente: seleccion.first,
+                                      );
+                                    },
+                                    style: SegmentedButton.styleFrom(
+                                      selectedBackgroundColor: marca == false
+                                          ? SamanColors.error
+                                          : SamanColors.verde,
+                                      selectedForegroundColor: Colors.white,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
           bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: FilledButton.icon(
-                key: const Key('guardar-asistencia'),
-                onPressed: controller.guardando || nomina.isEmpty || !habilitada
-                    ? null
-                    : () => _guardar(context),
-                icon: controller.guardando
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(
-                  'Guardar asistencia '
-                  '(${nomina.length - controller.sinMarcar}/${nomina.length})',
+            child: Center(
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 960),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      key: const Key('guardar-asistencia'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SamanColors.naranja,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: controller.guardando || nomina.isEmpty || !habilitada
+                          ? null
+                          : () => _guardar(context),
+                      icon: controller.guardando
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(
+                        'Guardar asistencia '
+                        '(${nomina.length - controller.sinMarcar}/${nomina.length})',
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

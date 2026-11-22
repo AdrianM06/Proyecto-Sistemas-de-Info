@@ -4,6 +4,7 @@ import '../../controllers/gestion_entrenadores_controller.dart';
 import '../../models/deporte.dart';
 import '../../models/usuario.dart';
 import '../../services/gestion_entrenadores_service.dart';
+import '../theme/saman_colors.dart';
 import '../widgets/avatar_usuario.dart';
 
 const _azul = Color(0xFF003B82);
@@ -167,6 +168,7 @@ class _GestionEntrenadoresViewState extends State<GestionEntrenadoresView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Gestión de entrenadores'),
         backgroundColor: _azul,
@@ -226,7 +228,7 @@ class _GestionEntrenadoresViewState extends State<GestionEntrenadoresView> {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
+        constraints: const BoxConstraints(maxWidth: 820),
         child: ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: entrenadores.length,

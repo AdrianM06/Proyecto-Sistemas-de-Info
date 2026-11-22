@@ -5,6 +5,7 @@ import '../../models/deporte.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/app_validators.dart';
+import '../theme/saman_colors.dart';
 
 const _azul = Color(0xFF003B82);
 const _naranja = Color(0xFFF58220);
@@ -135,6 +136,8 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
 
   InputDecoration _decoracion(String etiqueta, {String? ayuda}) {
     return InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
       labelText: etiqueta,
       helperText: ayuda,
       border: const OutlineInputBorder(),
@@ -144,14 +147,16 @@ class _RegistrarEntrenadorViewState extends State<RegistrarEntrenadorView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Registrar entrenador'),
         backgroundColor: _azul,
         foregroundColor: Colors.white,
       ),
-      body: Center(
+      body: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: const BoxConstraints(maxWidth: 820),
           child: Form(
             key: _formKey,
             child: ListView(
