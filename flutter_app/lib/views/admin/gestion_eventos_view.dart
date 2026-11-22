@@ -6,10 +6,11 @@ import '../../models/cancha.dart';
 import '../../models/deporte.dart';
 import '../../models/evento.dart';
 import '../entrenador/formato.dart';
+import '../theme/saman_colors.dart';
 import 'gestion_canchas_view.dart';
 
 const _azul = Color(0xFF003B82);
-const _naranja = Color(0xFFFF8C2A);
+const _naranja = Color(0xFFF58220);
 
 class GestionEventosView extends StatefulWidget {
   const GestionEventosView({
@@ -122,6 +123,7 @@ class _GestionEventosViewState extends State<GestionEventosView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Eventos y Torneos'),
         backgroundColor: _azul,
@@ -154,7 +156,7 @@ class _GestionEventosViewState extends State<GestionEventosView> {
           return Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(maxWidth: 820),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [

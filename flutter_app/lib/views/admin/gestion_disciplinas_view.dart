@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/deporte.dart';
 import '../../services/baja_disciplina_service.dart';
 import '../../services/gestion_entrenadores_service.dart';
+import '../theme/saman_colors.dart';
 import 'crear_deporte_view.dart';
 
 const _azul = Color(0xFF003B82);
@@ -212,6 +213,7 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: const Text('Gestionar disciplinas'),
         backgroundColor: _azul,
@@ -231,6 +233,8 @@ class _GestionDisciplinasViewState extends State<GestionDisciplinasView> {
                   controller: _busqueda,
                   onChanged: (valor) => setState(() => _texto = valor),
                   decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Buscar por nombre, lugar, entrenador o etiqueta',
                     border: OutlineInputBorder(),

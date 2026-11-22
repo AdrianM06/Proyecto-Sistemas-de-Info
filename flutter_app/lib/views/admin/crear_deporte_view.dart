@@ -5,10 +5,11 @@ import '../../models/deporte.dart';
 import '../../models/usuario.dart';
 import '../../services/gestion_entrenadores_service.dart';
 import '../../utils/horarios.dart';
+import '../theme/saman_colors.dart';
 import 'gestion_canchas_view.dart';
 
 const _azul = Color(0xFF003B82);
-const _naranja = Color(0xFFFF8C2A);
+const _naranja = Color(0xFFF58220);
 
 /// Formulario del administrador para crear una disciplina o, con [deporte],
 /// editarla.
@@ -151,6 +152,7 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SamanColors.niebla,
       appBar: AppBar(
         title: Text(
           _controller.editando ? 'Editar disciplina' : 'Crear Nueva Disciplina',
@@ -163,7 +165,7 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
         builder: (context, _) => Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 820),
             child: Form(
               key: _formKey,
               child: ListView(
@@ -173,6 +175,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                     key: const Key('campo-nombre-disciplina'),
                     controller: _nombreCtrl,
                     decoration: const InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
                       labelText: 'Nombre del Deporte',
                       border: OutlineInputBorder(),
                     ),
@@ -183,6 +187,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                   TextFormField(
                     controller: _disciplinaCtrl,
                     decoration: const InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
                       labelText: 'Categoría / Disciplina',
                       border: OutlineInputBorder(),
                     ),
@@ -200,7 +206,7 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                         if (actual.isNotEmpty && !nombres.contains(actual)) actual,
                         for (final c in canchas) c.nombre,
                       ];
-                      
+
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -208,6 +214,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                             child: DropdownButtonFormField<String>(
                               initialValue: opciones.contains(actual) ? actual : null,
                               decoration: const InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
                                 labelText: 'Lugar / Cancha',
                                 border: OutlineInputBorder(),
                               ),
@@ -242,6 +250,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                     controller: _cuposCtrl,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
                       labelText: 'Cupos Máximos',
                       border: OutlineInputBorder(),
                     ),
@@ -261,6 +271,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                         child: TextField(
                           controller: _tagCtrl,
                           decoration: const InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
                             labelText: 'Añadir Etiqueta (ej. Principiante)',
                             border: OutlineInputBorder(),
                           ),
@@ -344,6 +356,8 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
                 controller: _horarioCtrl,
                 onSubmitted: (_) => _agregarHorario(),
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
                   labelText: 'Horario',
                   hintText: 'Lun y Mié 4:00 pm - 6:00 pm',
                   helperText:

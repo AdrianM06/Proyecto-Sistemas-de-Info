@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'navigation/app_routes.dart';
-
-// NO TOCAR ESTOS COLORES, SON DE LA PALETA UNIVERSITARIA, NO MODIFICAR NI DEJAR DE USAR!
-// (Los colores del login viven ahora en lib/views/login_screen.dart.)
-const _navy = Color(0xFF003B82);
+import 'views/theme/saman_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +12,6 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    // La app abre igual; el inicio de sesión mostrará el error.
     debugPrint('No se pudo inicializar Firebase: $e');
   }
   runApp(const UnimetSportsApp());
@@ -26,16 +22,12 @@ class UnimetSportsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final temaBase = SamanColors.tema();
     return MaterialApp(
       title: 'UNIMET Sports',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: _navy),
-        fontFamily: 'Roboto',
-        useMaterial3: true,
-        // Transición suave (fundido) entre pantallas en todas las
-        // plataformas: evita el "salto" del diseño al pasar del Inicio al
-        // Perfil.
+      theme: temaBase.copyWith(
+        textTheme: temaBase.textTheme.apply(fontFamily: 'Roboto'),
         pageTransitionsTheme: PageTransitionsTheme(
           builders: {
             for (final plataforma in TargetPlatform.values)
@@ -43,14 +35,12 @@ class UnimetSportsApp extends StatelessWidget {
           },
         ),
       ),
-      // La raíz (/) es la Landing Page; desde ahí se entra al login.
       initialRoute: AppRoutes.landing,
       onGenerateRoute: AppRoutes.generarRuta,
     );
   }
 }
 
-/// Transición de página con un fundido corto.
 class _TransicionFundido extends PageTransitionsBuilder {
   const _TransicionFundido();
 

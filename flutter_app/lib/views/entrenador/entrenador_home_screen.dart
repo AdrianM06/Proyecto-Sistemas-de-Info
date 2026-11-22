@@ -125,12 +125,18 @@ class _EntrenadorHomeScreenState extends State<EntrenadorHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final titulos = ['Hola, ${widget.nombreEntrenador}', 'Nómina', 'Asistencia'];
+    final ancho = MediaQuery.sizeOf(context).width;
+    final esEscritorio = ancho >= 760;
+
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
         return Scaffold(
+          backgroundColor: SamanColors.niebla,
           appBar: AppBar(
             title: Text(titulos[_pestana]),
+            backgroundColor: SamanColors.azul,
+            foregroundColor: Colors.white,
             actions: [
               IconButton(
                 tooltip: 'Actualizar',
@@ -162,32 +168,81 @@ class _EntrenadorHomeScreenState extends State<EntrenadorHomeScreen> {
             bottom: _controller.cargando
                 ? const PreferredSize(
                     preferredSize: Size.fromHeight(4),
-                    child: LinearProgressIndicator(),
+                    child: LinearProgressIndicator(
+                      color: SamanColors.naranja,
+                      backgroundColor: SamanColors.azul200,
+                    ),
                   )
                 : null,
           ),
-          body: _contenido(),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _pestana,
-            onDestinationSelected: (indice) => setState(() => _pestana = indice),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Inicio',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.groups_outlined),
-                selectedIcon: Icon(Icons.groups),
-                label: 'Nómina',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.fact_check_outlined),
-                selectedIcon: Icon(Icons.fact_check),
-                label: 'Asistencia',
-              ),
-            ],
-          ),
+          body: esEscritorio
+              ? Row(
+                  children: [
+                    NavigationRail(
+                      extended: ancho >= 1024,
+                      backgroundColor: Colors.white,
+                      selectedIndex: _pestana,
+                      selectedIconTheme: const IconThemeData(
+                        color: SamanColors.azul,
+                      ),
+                      selectedLabelTextStyle: const TextStyle(
+                        color: SamanColors.azul,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      indicatorColor: SamanColors.azul50,
+                      onDestinationSelected: (indice) =>
+                          setState(() => _pestana = indice),
+                      destinations: const [
+                        NavigationRailDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
+                          label: Text('Inicio'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.groups_outlined),
+                          selectedIcon: Icon(Icons.groups),
+                          label: Text('Nómina'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.fact_check_outlined),
+                          selectedIcon: Icon(Icons.fact_check),
+                          label: Text('Asistencia'),
+                        ),
+                      ],
+                    ),
+                    const VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: SamanColors.neutro200,
+                    ),
+                    Expanded(child: _contenido()),
+                  ],
+                )
+              : _contenido(),
+          bottomNavigationBar: esEscritorio
+              ? null
+              : NavigationBar(
+                  selectedIndex: _pestana,
+                  onDestinationSelected: (indice) =>
+                      setState(() => _pestana = indice),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: 'Inicio',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.groups_outlined),
+                      selectedIcon: Icon(Icons.groups),
+                      label: 'Nómina',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.fact_check_outlined),
+                      selectedIcon: Icon(Icons.fact_check),
+                      label: 'Asistencia',
+                    ),
+                  ],
+                ),
         );
       },
     );
@@ -216,25 +271,31 @@ class _EntrenadorHomeScreenState extends State<EntrenadorHomeScreen> {
       );
     }
 
-    return Column(
-      children: [
-        _SelectorDeDisciplina(controller: controller),
-        Expanded(
-          child: switch (_pestana) {
-            0 => _PanelView(
-                controller: controller,
-                onTomarAsistencia: _tomarAsistenciaHoy,
-                onVerNomina: () => setState(() => _pestana = 1),
-              ),
-            1 => NominaView(controller: controller),
-            _ => HistorialAsistenciaView(
-                controller: controller,
-                onTomarAsistencia: _tomarAsistenciaHoy,
-                onAbrirSesion: _abrirSesion,
-              ),
-          },
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 960),
+        child: Column(
+          children: [
+            _SelectorDeDisciplina(controller: controller),
+            Expanded(
+              child: switch (_pestana) {
+                0 => _PanelView(
+                    controller: controller,
+                    onTomarAsistencia: _tomarAsistenciaHoy,
+                    onVerNomina: () => setState(() => _pestana = 1),
+                  ),
+                1 => NominaView(controller: controller),
+                _ => HistorialAsistenciaView(
+                    controller: controller,
+                    onTomarAsistencia: _tomarAsistenciaHoy,
+                    onAbrirSesion: _abrirSesion,
+                  ),
+              },
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
