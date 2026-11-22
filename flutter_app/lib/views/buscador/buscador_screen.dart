@@ -22,6 +22,7 @@ class BuscadorScreen extends StatefulWidget {
     required this.controller,
     this.onSeleccionar,
     this.paginaDeResenas,
+    this.paypalService,
   });
 
   factory BuscadorScreen.conFirestore({
@@ -61,7 +62,8 @@ class BuscadorScreen extends StatefulWidget {
   /// Página que abre "Ver reseñas". Por defecto, [DetalleDeporteView]
   /// conectada a Firestore; las pruebas pasan otra.
   final Widget Function(Deporte deporte, String? estudianteId)? paginaDeResenas;
-
+  final PaypalService? paypalService;
+  
   @override
   State<BuscadorScreen> createState() => _BuscadorScreenState();
 }
@@ -620,7 +622,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     if (confirmar != true || !mounted) return;
 
     // 3. Crear la orden en PayPal Sandbox y abrir el enlace en Web o Móvil.
-    final paypal = PaypalService();
+    final paypal = widget.paypalService ?? PaypalService();
     PaypalOrdenCreada orden;
     try {
       orden = await paypal.crearOrden(
