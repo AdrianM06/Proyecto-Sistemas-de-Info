@@ -52,8 +52,12 @@ class Inscripcion {
     );
   }
 
-factory Inscripcion.fromFirestore(DocumentSnapshot> doc) {
-    return Inscripcion.fromJson(doc.data() ?? const {}, id: doc.id);
+  factory Inscripcion.fromFirestore(DocumentSnapshot<Object?> doc) {
+    final data = doc.data();
+    return Inscripcion.fromJson(
+      data is Map<String, dynamic> ? data : const {},
+      id: doc.id,
+    );
   }
 
   Map<String, dynamic> toJson() => {
