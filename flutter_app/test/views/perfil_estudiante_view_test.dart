@@ -68,9 +68,11 @@ void main() {
     expect(find.byKey(const Key('boton-cambiar-foto')), findsOneWidget);
     expect(find.byKey(const Key('boton-editar-datos')), findsOneWidget);
     expect(find.text('Cambia la contraseña de usuario'), findsOneWidget);
-    expect(find.text('Saldo en cuenta'), findsOneWidget);
-    expect(find.text('Saldo adeudado'), findsOneWidget);
-    expect(find.text('Bs. 00,00'), findsOneWidget);
+    expect(find.text('Pagos'), findsOneWidget);
+    expect(find.text('Saldo en cuenta'), findsNothing);
+    expect(find.text('Saldo adeudado'), findsNothing);
+    expect(find.text('Bs. 00,00'), findsNothing);
+    expect(find.byKey(const Key('boton-ver-pagos')), findsOneWidget);
     // Título de la tarjeta y texto del botón.
     expect(find.text('Retirar disciplina'), findsNWidgets(2));
     expect(
