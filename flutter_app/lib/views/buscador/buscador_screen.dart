@@ -357,6 +357,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     final aviso = ValueNotifier<_Aviso?>(null);
 
     Widget construirContenido(BuildContext contextoContenedor) {
+      final mostrarBotonCerrar =
+          MediaQuery.sizeOf(contextoContenedor).width >= 600;
       return ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
@@ -367,7 +369,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
           return SafeArea(
             child: Padding(
               key: const Key('detalle-deporte'),
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,6 +398,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                         ),
                       ),
                       EtiquetaCupos(cuposDisponibles: cuposLibres),
+                      if (mostrarBotonCerrar) const SizedBox(width: 40),
                     ],
                   ),
                   const SizedBox(height: 16),
