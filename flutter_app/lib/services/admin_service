@@ -1,0 +1,19 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class AdminService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  Future<void> reasignarEntrenador({
+    required String disciplinaId,
+    required String nuevoEntrenadorId,
+    required String nuevoEntrenadorNombre,
+  }) async {
+    final disciplinaRef = _db.collection('disciplinas').doc(disciplinaId);
+
+    await disciplinaRef.update({
+      'entrenadorId': nuevoEntrenadorId,
+      'entrenadorNombre': nuevoEntrenadorNombre,
+      'ultimaActualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+}
