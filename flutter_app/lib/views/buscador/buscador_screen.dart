@@ -153,7 +153,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     label: Text(
                       _controller.filtraPorHoras
                           ? '${BloqueHorario.horaTexto(_controller.desde!)} – '
-                              '${BloqueHorario.horaTexto(_controller.hasta!)}'
+                                '${BloqueHorario.horaTexto(_controller.hasta!)}'
                           : 'Horario',
                     ),
                     selected: _controller.filtraPorHoras,
@@ -220,7 +220,8 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                     ? MensajeVacio(
                         icono: Icons.search_off,
                         titulo: 'No encontramos deportes',
-                        detalle: 'Prueba con otro nombre o quita algunos filtros.',
+                        detalle:
+                            'Prueba con otro nombre o quita algunos filtros.',
                         accion: FilledButton(
                           key: const Key('limpiar-filtros'),
                           onPressed: _limpiarFiltros,
@@ -239,8 +240,9 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                             return TarjetaDeporte(
                               key: Key('tarjeta-${deporte.id}'),
                               deporte: deporte,
-                              cuposDisponibles:
-                                  _controller.cuposDisponiblesDe(deporte),
+                              cuposDisponibles: _controller.cuposDisponiblesDe(
+                                deporte,
+                              ),
                               onTap: () => _mostrarDetalle(deporte),
                             );
                           },
@@ -277,9 +279,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
               children: [
                 Text(
                   '¿A qué hora puedes entrenar?',
-                  style: Theme.of(contextoHoja)
-                      .textTheme
-                      .titleMedium
+                  style: Theme.of(contextoHoja).textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
@@ -307,9 +307,9 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
                   children: [
                     TextButton(
                       key: const Key('quitar-rango-horas'),
-                      onPressed: () => Navigator.of(
-                        contextoHoja,
-                      ).pop(const RangeValues(-1, -1)),
+                      onPressed: () =>
+                          Navigator.of(contextoHoja)
+                              .pop(const RangeValues(-1, -1)),
                       child: const Text('Quitar filtro'),
                     ),
                     const Spacer(),
@@ -339,11 +339,12 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
 
   /// Abre el detalle de la disciplina con sus reseñas y su promedio.
   void _abrirResenas(Deporte deporte) {
-    final pagina = widget.paginaDeResenas ??
+    final pagina =
+        widget.paginaDeResenas ??
         (deporte, estudianteId) => DetalleDeporteView.conFirebase(
-              deporte: deporte,
-              estudianteId: estudianteId,
-            );
+          deporte: deporte,
+          estudianteId: estudianteId,
+        );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => pagina(deporte, _controller.estudianteId),
@@ -355,222 +356,269 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     final onSeleccionar = widget.onSeleccionar;
     final aviso = ValueNotifier<_Aviso?>(null);
 
+    Widget construirContenido(BuildContext contextoContenedor) {
+      final mostrarBotonCerrar =
+          MediaQuery.sizeOf(contextoContenedor).width >= 600;
+      return ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) {
+          final cuposLibres = _controller.cuposDisponiblesDe(deporte);
+          final inscrito = _controller.estaInscrito(deporte);
+          final inscribiendo = _controller.inscribiendo == deporte.id;
+
+          return SafeArea(
+            child: Padding(
+              key: const Key('detalle-deporte'),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              deporte.nombre,
+                              style: Theme.of(contextoContenedor)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              deporte.disciplina,
+                              style: const TextStyle(
+                                color: SamanColors.neutro500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      EtiquetaCupos(cuposDisponibles: cuposLibres),
+                      if (mostrarBotonCerrar) const SizedBox(width: 40),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const _Subtitulo('Horarios'),
+                  if (deporte.horarios.isEmpty)
+                    const Text('Horario por definir')
+                  else
+                    for (final horario in deporte.horarios)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.schedule,
+                              size: 18,
+                              color: SamanColors.azul,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(horario),
+                          ],
+                        ),
+                      ),
+                  const SizedBox(height: 12),
+                  _Subtitulo(
+                    deporte.entrenadoresIds.length > 1
+                        ? 'Entrenadores'
+                        : 'Entrenador',
+                  ),
+                  Text(
+                    deporte.entrenadoresTexto,
+                    key: const Key('entrenadores-detalle'),
+                  ),
+                  const SizedBox(height: 12),
+                  const _Subtitulo('Lugar'),
+                  Text(
+                    deporte.lugar.isEmpty ? 'Lugar por definir' : deporte.lugar,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Cupos totales: ${deporte.cupos} · '
+                    'Inscritos: ${_controller.inscritosDe(deporte)}',
+                    style: const TextStyle(color: SamanColors.neutro500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} ${PaypalConfig.moneda}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: SamanColors.azulNoche,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    key: const Key('boton-ver-resenas'),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    onPressed: () {
+                      Navigator.of(contextoContenedor).pop();
+                      _abrirResenas(deporte);
+                    },
+                    icon: const Icon(Icons.star_outline_rounded),
+                    label: const Text('Ver reseñas y valoraciones'),
+                  ),
+                  if (onSeleccionar != null ||
+                      _controller.permiteInscribir) ...[
+                    const SizedBox(height: 20),
+                    ValueListenableBuilder<_Aviso?>(
+                      valueListenable: aviso,
+                      builder: (context, valor, _) {
+                        if (valor == null) return const SizedBox.shrink();
+                        final color = valor.exito
+                            ? Colors.green[700]
+                            : Colors.red[700];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            key: const Key('aviso-inscripcion'),
+                            children: [
+                              Icon(
+                                valor.exito
+                                    ? Icons.check_circle
+                                    : Icons.error_outline,
+                                color: color,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  valor.texto,
+                                  style: TextStyle(color: color),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    if (!inscrito)
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          key: const Key('boton-inscribirme'),
+                          onPressed: inscribiendo || cuposLibres == 0
+                              ? null
+                              : () => _inscribirme(
+                                  contextoContenedor,
+                                  deporte,
+                                  aviso,
+                                ),
+                          child: inscribiendo
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  cuposLibres == 0
+                                      ? 'Sin cupos disponibles'
+                                      : 'Inscribirme',
+                                ),
+                        ),
+                      )
+                    else ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green[700]),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Actualmente estás inscrito en esta disciplina.',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          key: const Key('boton-cancelar-inscripcion-catalogo'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red[700],
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                          onPressed: inscribiendo
+                              ? null
+                              : () => _cancelarInscripcion(
+                                  contextoContenedor,
+                                  deporte,
+                                  aviso,
+                                ),
+                          icon: const Icon(Icons.cancel_outlined),
+                          label: const Text('Cancelar mi inscripción'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    if (MediaQuery.sizeOf(context).width >= 600) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (contextoDialogo) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 32,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  child: construirContenido(contextoDialogo),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    key: const Key('cerrar-detalle-deporte'),
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.of(contextoDialogo).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (contextoHoja) {
-        return ListenableBuilder(
-          listenable: _controller,
-          builder: (context, _) {
-            final cuposLibres = _controller.cuposDisponiblesDe(deporte);
-            final inscrito = _controller.estaInscrito(deporte);
-            final inscribiendo = _controller.inscribiendo == deporte.id;
-
-            return SafeArea(
-              child: Padding(
-                key: const Key('detalle-deporte'),
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                deporte.nombre,
-                                style: Theme.of(contextoHoja)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              Text(
-                                deporte.disciplina,
-                                style: const TextStyle(
-                                  color: SamanColors.neutro500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        EtiquetaCupos(cuposDisponibles: cuposLibres),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const _Subtitulo('Horarios'),
-                    if (deporte.horarios.isEmpty)
-                      const Text('Horario por definir')
-                    else
-                      for (final horario in deporte.horarios)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.schedule,
-                                size: 18,
-                                color: SamanColors.azul,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(horario),
-                            ],
-                          ),
-                        ),
-                    const SizedBox(height: 12),
-                    _Subtitulo(
-                      deporte.entrenadoresIds.length > 1
-                          ? 'Entrenadores'
-                          : 'Entrenador',
-                    ),
-                    Text(
-                      deporte.entrenadoresTexto,
-                      key: const Key('entrenadores-detalle'),
-                    ),
-                    const SizedBox(height: 12),
-                    const _Subtitulo('Lugar'),
-                    Text(
-                      deporte.lugar.isEmpty ? 'Lugar por definir' : deporte.lugar,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Cupos totales: ${deporte.cupos} · '
-                      'Inscritos: ${_controller.inscritosDe(deporte)}',
-                      style: const TextStyle(color: SamanColors.neutro500),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Arancel de inscripción: \$${deporte.precio.toStringAsFixed(2)} ${PaypalConfig.moneda}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: SamanColors.azulNoche,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      key: const Key('boton-ver-resenas'),
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () {
-                        Navigator.of(contextoHoja).pop();
-                        _abrirResenas(deporte);
-                      },
-                      icon: const Icon(Icons.star_outline_rounded),
-                      label: const Text('Ver reseñas y valoraciones'),
-                    ),
-                    if (onSeleccionar != null || _controller.permiteInscribir) ...[
-                      const SizedBox(height: 20),
-                      ValueListenableBuilder<_Aviso?>(
-                        valueListenable: aviso,
-                        builder: (context, valor, _) {
-                          if (valor == null) return const SizedBox.shrink();
-                          final color = valor.exito
-                              ? Colors.green[700]
-                              : Colors.red[700];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              key: const Key('aviso-inscripcion'),
-                              children: [
-                                Icon(
-                                  valor.exito
-                                      ? Icons.check_circle
-                                      : Icons.error_outline,
-                                  color: color,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    valor.texto,
-                                    style: TextStyle(color: color),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      if (!inscrito)
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            key: const Key('boton-inscribirme'),
-                            onPressed: inscribiendo || cuposLibres == 0
-                                ? null
-                                : () => _inscribirme(contextoHoja, deporte, aviso),
-                            child: inscribiendo
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    cuposLibres == 0
-                                        ? 'Sin cupos disponibles'
-                                        : 'Inscribirme',
-                                  ),
-                          ),
-                        )
-                      else ...[
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.green[700]),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Actualmente estás inscrito en esta disciplina.',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            key: const Key('boton-cancelar-inscripcion-catalogo'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red[700],
-                              side: BorderSide(color: Colors.red.shade300),
-                            ),
-                            onPressed: inscribiendo
-                                ? null
-                                : () => _cancelarInscripcion(
-                                      contextoHoja,
-                                      deporte,
-                                      aviso,
-                                    ),
-                            icon: const Icon(Icons.cancel_outlined),
-                            label: const Text('Cancelar mi inscripción'),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: construirContenido,
     );
   }
 
- Future<void> _inscribirme(
+  Future<void> _inscribirme(
     BuildContext contextoHoja,
     Deporte deporte,
     ValueNotifier<_Aviso?> aviso,
@@ -650,7 +698,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
     }
 
     if (!mounted) return;
-   
+
     // 4. Esperar a que el estudiante apruebe en el navegador y capturar el pago.
     final resultadoPago = await showDialog<PaypalResultadoPago?>(
       context: context,
@@ -687,6 +735,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
           )
         : _Aviso(error, exito: false);
   }
+
   Future<void> _cancelarInscripcion(
     BuildContext contextoHoja,
     Deporte deporte,
@@ -823,8 +872,7 @@ class _DialogoEsperandoPaypalState extends State<_DialogoEsperandoPaypal> {
       }
       if (!silencioso) {
         setState(() {
-          _mensajeEstado =
-              'Aún no aparece aprobado. Completa el pago en la ventana de PayPal.';
+          _mensajeEstado = 'Aún no aparece aprobado. Completa el pago en la ventana de PayPal.';
         });
       }
     } on PaypalException catch (e) {
