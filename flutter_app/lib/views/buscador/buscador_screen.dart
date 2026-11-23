@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/paypal_config.dart';
@@ -367,7 +367,7 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
           return SafeArea(
             child: Padding(
               key: const Key('detalle-deporte'),
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,6 +568,43 @@ class _BuscadorScreenState extends State<BuscadorScreen> {
           );
         },
       );
+    }
+
+    if (MediaQuery.sizeOf(context).width >= 600) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (contextoDialogo) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 32,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  child: construirContenido(contextoDialogo),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    key: const Key('cerrar-detalle-deporte'),
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.of(contextoDialogo).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
     }
 
     showModalBottomSheet<void>(
