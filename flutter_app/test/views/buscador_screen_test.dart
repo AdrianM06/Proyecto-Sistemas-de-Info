@@ -41,7 +41,10 @@ void main() {
   testWidgets('el buscador filtra por nombre sin acentos', (tester) async {
     await abrir(tester);
 
-    await tester.enterText(find.byKey(const Key('buscador-deportes')), 'futbol');
+    await tester.enterText(
+      find.byKey(const Key('buscador-deportes')),
+      'futbol',
+    );
     await tester.pumpAndSettle();
 
     expect(contador(tester), '2 deportes');
@@ -81,4 +84,27 @@ void main() {
     expect(find.byKey(const Key('detalle-deporte')), findsOneWidget);
     expect(find.byKey(const Key('boton-inscribirme')), findsOneWidget);
   });
+
+  testWidgets(
+    'en computadora el detalle se abre como diálogo con botón cerrar',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('tarjeta-AJE-01')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.byKey(const Key('cerrar-detalle-deporte')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('cerrar-detalle-deporte')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('detalle-deporte')), findsNothing);
+    },
+  );
 }
