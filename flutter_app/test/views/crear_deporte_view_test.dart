@@ -81,23 +81,64 @@ void main() {
     await tester.pump();
   }
 
+  Future<void> seleccionar(
+    WidgetTester tester,
+    Key campo,
+    String opcion,
+  ) async {
+    await tester.tap(find.byKey(campo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(opcion).last);
+    await tester.pump();
+  }
+
   Future<void> agregarHorario(WidgetTester tester, String texto) async {
-    await tester.enterText(find.byKey(const Key('campo-horario')), texto);
+    if (texto.contains('Lun')) {
+      await seleccionar(tester, const Key('campo-dia-horario'), 'Lunes');
+    } else if (texto.contains('Mar')) {
+      await seleccionar(tester, const Key('campo-dia-horario'), 'Martes');
+    } else if (texto.contains('Mié')) {
+      await seleccionar(tester, const Key('campo-dia-horario'), 'Miércoles');
+    } else if (texto.contains('Jue')) {
+      await seleccionar(tester, const Key('campo-dia-horario'), 'Jueves');
+    } else if (texto.contains('Vie')) {
+      await seleccionar(tester, const Key('campo-dia-horario'), 'Viernes');
+    }
+
+    if (texto.contains('5:00 pm')) {
+      await seleccionar(
+        tester,
+        const Key('campo-inicio-horario'),
+        '5:00 pm',
+      );
+    }
+    if (texto.contains('7:00 pm')) {
+      await seleccionar(
+        tester,
+        const Key('campo-fin-horario'),
+        '7:00 pm',
+      );
+    } else if (texto.contains('6:30 pm')) {
+      await seleccionar(
+        tester,
+        const Key('campo-fin-horario'),
+        '6:30 pm',
+      );
+    }
+
     await tester.tap(find.byKey(const Key('agregar-horario')));
     await tester.pump();
   }
 
-  testWidgets('interpreta el horario y muestra la duración', (tester) async {
+  testWidgets('interpreta los horarios seleccionados y muestra la duración', (
+    tester,
+  ) async {
     await abrir(tester);
 
-    await agregarHorario(tester, 'Martes 5 pm');
-    expect(find.textContaining('Indica la hora de inicio'), findsOneWidget);
-
-    await agregarHorario(tester, 'Mar y Jue 5:00 pm - 6:30 pm');
+    await agregarHorario(tester, 'Mar 5:00 pm - 6:30 pm');
     expect(
       find.text(
-        'Mar 5:00 pm – 6:30 pm (1 h 30 min)\n'
-        'Jue 5:00 pm – 6:30 pm (1 h 30 min)',
+        'Mar 5:00 pm – 6:30 pm (1 h 30 min)',
       ),
       findsOneWidget,
     );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/formulario_disciplina_controller.dart';
 import '../../models/deporte.dart';
-import '../../bloque_horario.dart';
+import '../../models/bloque_horario.dart';
 import '../../models/usuario.dart';
 import '../../services/gestion_entrenadores_service.dart';
 import '../../utils/horarios.dart';
@@ -89,27 +89,27 @@ class _CrearDeporteViewState extends State<CrearDeporteView> {
   }
 
   void _agregarHorario() {
-  if (_controller.guardando) return;
+    if (_controller.guardando) return;
 
-  if (_horaFinSeleccionada <= _horaInicioSeleccionada) {
+    if (_horaFinSeleccionada <= _horaInicioSeleccionada) {
+      setState(() {
+        _errorHorario =
+            'La hora de finalización debe ser posterior a la de inicio.';
+      });
+      return;
+    }
+
+    final horario =
+        '$_diaSeleccionado '
+        '${BloqueHorario.horaTexto(_horaInicioSeleccionada)} - '
+        '${BloqueHorario.horaTexto(_horaFinSeleccionada)}';
+
+    final error = _controller.agregarHorario(horario);
+
     setState(() {
-      _errorHorario =
-          'La hora de finalización debe ser posterior a la de inicio.';
+      _errorHorario = error;
     });
-    return;
   }
-
-  final horario =
-      '$_diaSeleccionado '
-      '${BloqueHorario.horaTexto(_horaInicioSeleccionada)} - '
-      '${BloqueHorario.horaTexto(_horaFinSeleccionada)}';
-
-  final error = _controller.agregarHorario(horario);
-
-  setState(() {
-    _errorHorario = error;
-  });
-}
 
   Future<void> _alternarEntrenador(Usuario entrenador) async {
     final choque = _controller.alternarEntrenador(
